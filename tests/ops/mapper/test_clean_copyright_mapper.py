@@ -1,17 +1,21 @@
 import unittest
 
+from data_juicer.core.data import NestedDataset as Dataset
 from data_juicer.ops.mapper.clean_copyright_mapper import CleanCopyrightMapper
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class CleanCopyrightMapperTest(unittest.TestCase):
+class CleanCopyrightMapperTest(DataJuicerTestCaseBase):
 
     def setUp(self):
         self.op = CleanCopyrightMapper()
 
     def _run_clean_copyright(self, samples):
-        for sample in samples:
-            result = self.op.process(sample)
-            self.assertEqual(result['text'], result['target'])
+        dataset = Dataset.from_list(samples)
+        dataset = dataset.map(self.op.process, batch_size=2)
+                
+        for data in dataset:
+            self.assertEqual(data['text'], data['target'])
 
     def test_clean_copyright(self):
 

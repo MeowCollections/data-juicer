@@ -5,18 +5,25 @@
 import hashlib
 import struct
 from collections import defaultdict
+from typing import Optional
 
 import numpy as np
 import regex
-from jsonargparse.typing import ClosedUnitInterval, PositiveInt
 from loguru import logger
-from scipy.integrate import quad as integrate
+from pydantic import Field, PositiveInt
 from tqdm import tqdm
+from typing_extensions import Annotated
 
 from data_juicer.utils.constant import HashKeys
+from data_juicer.utils.lazy_loader import LazyLoader
+from data_juicer.utils.model_utils import prepare_sentencepiece_model
 
 from ..base_op import OPERATORS, Deduplicator
 from ..common.helper_func import UnionFind, split_on_whitespace
+
+integrate = LazyLoader('integrate', 'scipy.integrate')
+
+OP_NAME = 'document_minhash_deduplicator'
 
 MERSENNE_PRIME = np.uint64((1 << 61) - 1)
 MAX_HASH = np.uint64((1 << 32) - 1)
@@ -62,7 +69,7 @@ def optimal_param(
         def proba(s):
             return 1 - (1 - s**float(rows))**float(band)
 
-        a, _ = integrate(proba, 0.0, th)
+        a, _ = integrate.quad(proba, 0.0, th)
         return a
 
     def false_negative_probability(th: float, band: int, rows: int):
@@ -71,7 +78,7 @@ def optimal_param(
         def proba(s):
             return 1 - (1 - (1 - s**float(rows))**float(band))
 
-        a, _ = integrate(proba, th, 1.0)
+        a, _ = integrate.quad(proba, th, 1.0)
         return a
 
     # object: minimize the weighted FP and FN ratio
@@ -89,7 +96,7 @@ def optimal_param(
     return opt
 
 
-@OPERATORS.register_module('document_minhash_deduplicator')
+@OPERATORS.register_module(OP_NAME)
 class DocumentMinhashDeduplicator(Deduplicator):
     """
     Deduplicator to deduplicate samples at document-level using MinHashLSH.
@@ -103,11 +110,12 @@ class DocumentMinhashDeduplicator(Deduplicator):
         tokenization: str = 'space',
         window_size: PositiveInt = 5,
         lowercase: bool = True,
-        ignore_pattern: str = None,
+        ignore_pattern: Optional[str] = None,
         num_permutations: PositiveInt = 256,
-        jaccard_threshold: ClosedUnitInterval = 0.7,
-        num_bands: PositiveInt = None,
-        num_rows_per_band: PositiveInt = None,
+        jaccard_threshold: Annotated[float, Field(ge=0, le=1)] = 0.7,
+        num_bands: Optional[PositiveInt] = None,
+        num_rows_per_band: Optional[PositiveInt] = None,
+        tokenizer_model: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -115,9 +123,12 @@ class DocumentMinhashDeduplicator(Deduplicator):
         Initialization method.
 
         :param tokenization: tokenization method for sample texts. It
-            should be one of [space, punctuation, character]. For
-            English-like languages, we recommend to use 'space'. And for
-            Chinese-like languages, we recommend to use 'character'
+            should be one of [space, punctuation, character,
+            sentencepiece]. For English-like languages, we recommend
+            to use 'space', for Chinese-like languages, we recommend
+            to use 'character', and for multiple languages, we recommend
+            to use 'sentencepiece'. If using 'sentencepiece', please
+            provided the model path in the 'tokenizer_model' field.
         :param window_size: window size of shingling
         :param lowercase: whether to convert text to lower case first
         :param ignore_pattern: whether to ignore sub-strings with
@@ -136,6 +147,8 @@ class DocumentMinhashDeduplicator(Deduplicator):
         :param num_rows_per_band: number of rows in each band in LSH.
             Default it's None, and it will be determined by an optimal
             params computation algorithm
+        :param tokenizer_model: path for the sentencepiece model, used for
+            sentencepiece tokenization.
         """
         super().__init__(*args, **kwargs)
         # about minhash computation
@@ -151,6 +164,15 @@ class DocumentMinhashDeduplicator(Deduplicator):
             logger.warning('Be careful that tokenization with punctuations '
                            'won\'t work if the ignore pattern includes '
                            'punctuations.')
+        self.punctuation_pattern = regex.compile(r'\p{P}')
+
+        if self.tokenization == 'sentencepiece':
+            if tokenizer_model is None:
+                raise ValueError("To use 'sentencepiece' tokenization, "
+                                 "'tokenizer_model' is required.")
+            self.tokenizer = prepare_sentencepiece_model(tokenizer_model)
+        else:
+            self.tokenizer = None
 
         # about deduplication
         self.num_permutation = num_permutations
@@ -217,6 +239,12 @@ class DocumentMinhashDeduplicator(Deduplicator):
             tokens = split_on_whitespace(text)
             tokens = {
                 str.encode(' '.join(tokens[i:i + self.window_size]))
+                for i in range(len(tokens) - self.window_size)
+            }
+        elif self.tokenization == 'sentencepiece':
+            tokens = self.tokenizer.encode(text, out_type=str)
+            tokens = {
+                str.encode(''.join(tokens[i:i + self.window_size]))
                 for i in range(len(tokens) - self.window_size)
             }
         else:

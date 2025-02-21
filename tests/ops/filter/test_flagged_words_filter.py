@@ -1,12 +1,13 @@
 import unittest
 
-from datasets import Dataset
+from data_juicer.core.data import NestedDataset as Dataset
 
 from data_juicer.ops.filter.flagged_words_filter import FlaggedWordFilter
 from data_juicer.utils.constant import Fields
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class FlaggedWordFilterTest(unittest.TestCase):
+class FlaggedWordFilterTest(DataJuicerTestCaseBase):
 
     def _run_flagged_words_filter(self, dataset: Dataset, target_list, op):
         if Fields.stats not in dataset.features:

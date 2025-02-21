@@ -1,14 +1,18 @@
 import unittest
 
+from data_juicer.core.data import NestedDataset as Dataset
 from data_juicer.ops.mapper.sentence_split_mapper import SentenceSplitMapper
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class SentenceSplitMapperTest(unittest.TestCase):
+class SentenceSplitMapperTest(DataJuicerTestCaseBase):
 
     def _run_helper(self, op, samples):
-        for sample in samples:
-            result = op.process(sample)
-            self.assertEqual(result['text'], result['target'])
+        dataset = Dataset.from_list(samples)
+        dataset = dataset.map(op.process, batch_size=2)
+                
+        for data in dataset:
+            self.assertEqual(data['text'], data['target'])
 
     def test_en_text(self):
 

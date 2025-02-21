@@ -1,17 +1,21 @@
 import unittest
 
+from data_juicer.core.data import NestedDataset as Dataset
 from data_juicer.ops.mapper.fix_unicode_mapper import FixUnicodeMapper
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class FixUnicodeMapperTest(unittest.TestCase):
+class FixUnicodeMapperTest(DataJuicerTestCaseBase):
 
     def setUp(self):
         self.op = FixUnicodeMapper()
 
     def _run_fix_unicode(self, samples):
-        for sample in samples:
-            result = self.op.process(sample)
-            self.assertEqual(result['text'], result['target'])
+        dataset = Dataset.from_list(samples)
+        dataset = dataset.map(self.op.process, batch_size=2)
+                                  
+        for data in dataset:
+            self.assertEqual(data['text'], data['target'])
 
     def test_bad_unicode_text(self):
 

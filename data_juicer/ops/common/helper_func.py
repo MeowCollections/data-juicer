@@ -32,7 +32,7 @@ def strip(document, strip_characters):
     emojis).
 
     :param document: document to be processed
-    :param strip_characters: characters uesd for stripping document
+    :param strip_characters: characters used for stripping document
     :return: stripped document
     """
     if not document:
@@ -57,7 +57,7 @@ def split_on_whitespace(document, new_line=False, tab=False):
     """
     This method also removes concatenated spaces.
 
-    :param document: document to be splited
+    :param document: document to be split
     :param new_line: whether to split document with '\\\\n'
     :param tag: whether to split document with '\\\\t'
     :return: word list obtained after splitting document
@@ -75,8 +75,8 @@ def split_on_newline_tab_whitespace(document):
     sentences.
 
     First split on "\\\\n", then on "\\\\t", then on " ".
-    :param document: document to be splited
-    :return: setence list obtained after splitting document
+    :param document: document to be split
+    :return: sentence list obtained after splitting document
     """
     sentences = document.split('\n')
     sentences = [sentence.split('\t') for sentence in sentences]
@@ -132,11 +132,11 @@ def get_words_from_document(
     Get words from a document. Useful to compute ratios, like the
     stopwords ratio.
 
-    :param document: document that need to split words
+    :param document: document that need to split words.
     :param token_func: function of tokenizer, if specified, the function
-        will be used for split document into different tokens.
-    :param new_line: whether to use `\\\\n' to split words
-    :param tab: whether to use '\\\\t' to split words
+     will be used for split document into different tokens.
+    :param new_line: whether to use '\\\\n' to split words.
+    :param tab: whether to use '\\\\t' to split words.
     :return: word list obtained from document
     """
     if token_func:
@@ -189,7 +189,7 @@ def get_sentences_from_document(document, model_func=None):
 
     :param document: document that need to split sentences
     :param model_func: function of sentence model, if specified, the
-        function will be used for spliting document into different
+        function will be used for splitting document into different
         sentences.
     :return: document with the sentences separated by '\\\\n'
     """
@@ -198,3 +198,22 @@ def get_sentences_from_document(document, model_func=None):
     else:
         sentences = document.splitlines()
     return '\n'.join(sentences)
+
+
+def split_text_by_punctuation(text):
+    """
+    Split text by any zh and en punctuation
+
+    :param text: text to be split.
+    :return: sub texts split by any zh and en punctuation
+    """
+    # any zh and en punctuation
+    punctuation_pattern = r'[\u3000-\u303f\uff00-\uffef]|[!"#$%&\'()*+,-./:;<=>?@[\\\]^_`{|}~]'  # noqa: E501
+
+    result = re.split(punctuation_pattern, text)
+    result = [s.strip() for s in result if s.strip()]
+
+    if not result:
+        return [text]
+
+    return result

@@ -2,65 +2,26 @@
 # https://github.com/bigscience-workshop/data-preparation
 # --------------------------------------------------------
 
-from collections import Counter, defaultdict, deque
-from typing import Dict, Set
+from collections import defaultdict, deque
+from typing import Dict, Optional, Set
 
 import numpy as np
 import regex
-import simhash
-from jsonargparse.typing import PositiveInt
 from loguru import logger
+from pydantic import PositiveInt
 
 from data_juicer.utils.constant import HashKeys
+from data_juicer.utils.lazy_loader import LazyLoader
 
 from ..base_op import OPERATORS, Deduplicator
 from ..common.helper_func import split_on_whitespace
 
+simhash = LazyLoader('simhash', 'simhash')
 
-def local_num_differing_bits(hash_a, hash_b):
-    """
-    Local implementation of calculating the number of different bits between
-    two integers.
-
-    :param hash_a: integer hash value a
-    :param hash_b: integer hash value b
-    :return: number of different bits between input hashes.
-    """
-    cnt = 0
-    n = hash_a ^ hash_b
-    while n != 0:
-        cnt += 1
-        n = n & (n - 1)
-    return cnt
+OP_NAME = 'document_simhash_deduplicator'
 
 
-def num_differing_bits_selector():
-    """
-    Select a num_differing_bits method according to the Python version
-    installed.
-
-    When Python >= 3.9, the original simhash library cannot be compiled
-    correctly due to some changes in cython. After fixing this
-    incompatibility, RecursionError occurs sometimes when calling
-    simhash.num_differing_bits. So we use our implementation when Python
-    >= 3.9. Otherwise, we use implementation of simhash.
-
-    :return: an available num_differing_bits function.
-    """
-    import platform
-    a, b, _ = platform.python_version().split('.')
-    if a == '3' and int(b) >= 9:
-        # for >= 3.9, use local implementation
-        return local_num_differing_bits
-    else:
-        # for < 3.9, use simhash version
-        return simhash.num_differing_bits
-
-
-num_differing_bits = num_differing_bits_selector()
-
-
-@OPERATORS.register_module('document_simhash_deduplicator')
+@OPERATORS.register_module(OP_NAME)
 class DocumentSimhashDeduplicator(Deduplicator):
     """Deduplicator to deduplicate samples at document-level using SimHash."""
 
@@ -68,7 +29,7 @@ class DocumentSimhashDeduplicator(Deduplicator):
                  tokenization: str = 'space',
                  window_size: PositiveInt = 6,
                  lowercase: bool = True,
-                 ignore_pattern: str = None,
+                 ignore_pattern: Optional[str] = None,
                  num_blocks: PositiveInt = 6,
                  hamming_distance: PositiveInt = 4,
                  *args,
@@ -107,6 +68,7 @@ class DocumentSimhashDeduplicator(Deduplicator):
             logger.warning('Be careful that tokenization with punctuations '
                            'won\'t work if the ignore pattern includes '
                            'punctuations.')
+        self.punctuation_pattern = regex.compile(r'\p{P}')
 
         # about deduplication
         self.num_blocks = num_blocks
@@ -154,8 +116,8 @@ class DocumentSimhashDeduplicator(Deduplicator):
                 f'Unimplemented tokenization method [{self.tokenization}]')
 
         # compute simhash
-        sample[HashKeys.simhash] = np.uint64(
-            simhash.compute(map(simhash.unsigned_hash, tokens)))
+        sample[HashKeys.simhash] = str(
+            np.uint64(simhash.compute(map(simhash.unsigned_hash, tokens))))
         return sample
 
     def process(self, dataset, show_num=0):
@@ -174,7 +136,7 @@ class DocumentSimhashDeduplicator(Deduplicator):
         # find matches
         logger.info(f'Start querying {len(dataset)} samples.')
         matches = simhash.find_all(
-            dataset[HashKeys.simhash],
+            np.uint64(dataset[HashKeys.simhash]),
             self.num_blocks,
             self.hamming_distance,
         )
@@ -182,17 +144,15 @@ class DocumentSimhashDeduplicator(Deduplicator):
 
         # compute hash diff distribution
         graph = defaultdict(dict)
-        dist = Counter()
         for x, y in matches:
+            x = str(x)
+            y = str(y)
             graph[x][y] = graph[y][x] = True
-            num_diff = num_differing_bits(x, y)
-            dist[num_diff] += 1
-        logger.info(f'Hash diff distribution: {dist}')
 
-        hash2ids: Dict[int, Set[str]] = defaultdict(set)
-        hashes: Set[int] = set(dataset[HashKeys.simhash])
-        hash2cluster: Dict[int, int] = {}
-        visited: Set[int] = set()
+        hash2ids: Dict[str, Set[str]] = defaultdict(set)
+        hashes: Set[str] = set(dataset[HashKeys.simhash])
+        hash2cluster: Dict[str, int] = {}
+        visited: Set[str] = set()
         cluster_id: int = 0
 
         for sid, hash_val in enumerate(dataset[HashKeys.simhash]):

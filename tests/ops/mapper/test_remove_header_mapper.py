@@ -1,17 +1,21 @@
 import unittest
 
+from data_juicer.core.data import NestedDataset as Dataset
 from data_juicer.ops.mapper.remove_header_mapper import RemoveHeaderMapper
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class RemoveHeaderMapperTest(unittest.TestCase):
+class RemoveHeaderMapperTest(DataJuicerTestCaseBase):
 
     def setUp(self):
         self.op = RemoveHeaderMapper()
 
     def _run_remove_header(self, samples):
-        for sample in samples:
-            result = self.op.process(sample)
-            self.assertEqual(result['text'], result['target'])
+        dataset = Dataset.from_list(samples)
+        dataset = dataset.map(self.op.process, batch_size=2)
+                
+        for data in dataset:
+            self.assertEqual(data['text'], data['target'])
 
     def test_case(self):
 

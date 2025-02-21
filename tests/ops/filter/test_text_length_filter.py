@@ -1,12 +1,13 @@
 import unittest
 
-from datasets import Dataset
+from data_juicer.core.data import NestedDataset as Dataset
 
 from data_juicer.ops.filter.text_length_filter import TextLengthFilter
 from data_juicer.utils.constant import Fields
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class TextLengthFilterTest(unittest.TestCase):
+class TextLengthFilterTest(DataJuicerTestCaseBase):
 
     def _run_text_length_filter(self, dataset: Dataset, target_list, op):
         if Fields.stats not in dataset.features:
@@ -15,8 +16,8 @@ class TextLengthFilterTest(unittest.TestCase):
             # only add stats when calling filter op
             dataset = dataset.add_column(name=Fields.stats,
                                          column=[{}] * dataset.num_rows)
-        dataset = dataset.map(op.compute_stats)
-        dataset = dataset.filter(op.process)
+        dataset = dataset.map(op.compute_stats, batch_size=3)
+        dataset = dataset.filter(op.process, batch_size=2)
         dataset = dataset.select_columns(column_names=['text'])
         res_list = dataset.to_list()
         self.assertEqual(res_list, target_list)

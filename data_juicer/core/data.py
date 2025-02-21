@@ -1,17 +1,43 @@
+from __future__ import annotations
+
 import copy
 import inspect
+import json
+import os
+import traceback
+from abc import ABC, abstractmethod
 from functools import wraps
+from time import time
 from typing import Union
 
 from datasets import Dataset, DatasetDict, is_caching_enabled
 from datasets.formatting.formatting import LazyBatch
 from loguru import logger
 
+from data_juicer.core.monitor import Monitor
+from data_juicer.ops import UNFORKABLE
 from data_juicer.utils import cache_utils
 from data_juicer.utils.compress import (CompressionOff,
                                         cleanup_compressed_cache_files,
                                         compress, decompress)
 from data_juicer.utils.fingerprint_utils import generate_fingerprint
+from data_juicer.utils.logger_utils import make_log_summarization
+from data_juicer.utils.process_utils import setup_mp
+
+
+class DJDataset(ABC):
+    """Base dataset of DJ"""
+
+    @abstractmethod
+    def process(
+            self,
+            operators,  # TODO: add type hint
+            *,
+            exporter=None,
+            checkpointer=None,
+            tracer=None) -> DJDataset:
+        """process a list of operators on the dataset."""
+        pass
 
 
 def wrap_func_with_nested_access(f):
@@ -116,7 +142,7 @@ class NestedDatasetDict(DatasetDict):
         return super().map(**args)
 
 
-class NestedDataset(Dataset):
+class NestedDataset(Dataset, DJDataset):
     """Enhanced HuggingFace-Dataset for better usability and efficiency."""
 
     def __init__(self, *args, **kargs):
@@ -139,9 +165,106 @@ class NestedDataset(Dataset):
             res = super().__getitem__(key)
         return nested_obj_factory(res)
 
-    def map(self, *args, **kargs):
-        """Override the map func, which is called by most common operations,
-        such that the processed samples can be accessed by nested manner."""
+    def process(
+        self,
+        operators,
+        *,
+        work_dir=None,
+        exporter=None,
+        checkpointer=None,
+        tracer=None,
+        adapter=None,
+        open_monitor=True,
+    ):
+        if operators is None:
+            return self
+
+        if not isinstance(operators, list):
+            operators = [operators]
+        unforkable_operators = set(UNFORKABLE.modules.keys())
+
+        # resource utilization monitor
+        if open_monitor:
+            resource_util_list = []
+
+        # whether to enable insight mining
+        enable_insight_mining = adapter.enable_insight_mining \
+            if adapter else False
+        # record the analysis results of the original dataset
+        if enable_insight_mining:
+            logger.info('Analyze small batch for the original dataset for '
+                        'insight mining...')
+            adapter.analyze_small_batch(self, '0_original')
+
+        dataset = self
+        op_num = len(operators)
+        try:
+            for idx, op in enumerate(operators, start=1):
+                mp_context = ['forkserver', 'spawn'] if (
+                    op.use_cuda()
+                    or op._name in unforkable_operators) else None
+                setup_mp(mp_context)
+
+                start = time()
+                # run single op
+                run_args = {
+                    'dataset': dataset,
+                    'exporter': exporter,
+                    'tracer': tracer,
+                }
+                if open_monitor:
+                    dataset, resource_util_per_op = Monitor.monitor_func(
+                        op.run, args=run_args)
+                else:
+                    dataset = op.run(**run_args)
+                # record processed ops
+                if checkpointer is not None:
+                    checkpointer.record(op._op_cfg)
+                if open_monitor:
+                    resource_util_list.append(resource_util_per_op)
+                end = time()
+                logger.info(
+                    f'[{idx}/{op_num}] OP [{op._name}] Done in '
+                    f'{end - start:.3f}s. Left {len(dataset)} samples.')
+
+                # record the analysis results of the current dataset
+                if enable_insight_mining:
+                    logger.info(
+                        f'Analyze small batch for the current dataset after '
+                        f'OP [{op._name}] for insight mining...')
+                    adapter.analyze_small_batch(dataset, f'{idx}_{op._name}')
+        except:  # noqa: E722
+            logger.error(f'An error occurred during Op [{op._name}].')
+            traceback.print_exc()
+            exit(1)
+        finally:
+            if checkpointer and dataset is not self:
+                logger.info('Writing checkpoint of dataset processed by '
+                            'last op...')
+                dataset.cleanup_cache_files()
+                checkpointer.save_ckpt(dataset)
+            # make summarization on the monitor results
+            if work_dir and open_monitor:
+                # get the analyzed version
+                resource_util_list = Monitor.analyze_resource_util_list(
+                    resource_util_list)
+                monitor_dir = os.path.join(work_dir, 'monitor')
+                os.makedirs(monitor_dir, exist_ok=True)
+                with open(os.path.join(monitor_dir, 'monitor.json'),
+                          'w') as out:
+                    json.dump(resource_util_list, out)
+                Monitor.draw_resource_util_graph(resource_util_list,
+                                                 monitor_dir)
+            # make summarization on the insight mining results
+            if work_dir and enable_insight_mining:
+                logger.info('Insight mining for each OP...')
+                adapter.insight_mining()
+            # make summarization on the error/warning logs
+            if work_dir:
+                make_log_summarization()
+        return dataset
+
+    def update_args(self, args, kargs, is_filter=False):
         if args:
             args = list(args)
             # the first positional para is function
@@ -158,20 +281,41 @@ class NestedDataset(Dataset):
                     kargs['function'])
             called_func = kargs['function']
 
-        # For wrapped function, try to get its original unwrapped method
-        while hasattr(called_func, '__wrapped__'):
+        # For wrapped function, try to get its unwrapped (bound) method
+        while not inspect.ismethod(called_func) and hasattr(
+                called_func, '__wrapped__'):
             called_func = called_func.__wrapped__
-        # Does the called function belong to a batched OP?
-        if inspect.ismethod(called_func) \
-                and 'is_batched_op' in dir(called_func.__self__) \
-                and callable(getattr(called_func.__self__, 'is_batched_op')) \
-                and called_func.__self__.is_batched_op():
-            kargs['batched'] = True
-            kargs['batch_size'] = 1
+
+        if inspect.ismethod(called_func):
+            # batched is required for fault-tolerant or batched OP
+            if callable(getattr(
+                    called_func.__self__,
+                    'is_batched_op')) and called_func.__self__.is_batched_op():
+                kargs['batched'] = True
+                kargs['batch_size'] = kargs.pop('batch_size', 1)
+            elif not getattr(called_func.__self__, 'turbo', False):
+                kargs['batched'] = True
+                kargs['batch_size'] = 1
+            else:
+                kargs['batched'] = False
+
+            # rank is required for cuda model loading for map
+            if not is_filter and callable(
+                    getattr(called_func.__self__,
+                            'use_cuda')) and called_func.__self__.use_cuda():
+                kargs['with_rank'] = True
 
         if 'new_fingerprint' not in kargs or kargs['new_fingerprint'] is None:
             new_fingerprint = generate_fingerprint(self, *args, **kargs)
             kargs['new_fingerprint'] = new_fingerprint
+
+        return args, kargs
+
+    def map(self, *args, **kargs):
+        """Override the map func, which is called by most common operations,
+        such that the processed samples can be accessed by nested manner."""
+
+        args, kargs = self.update_args(args, kargs)
 
         if cache_utils.CACHE_COMPRESS:
             decompress(self, kargs['new_fingerprint'],
@@ -191,23 +335,7 @@ class NestedDataset(Dataset):
     def filter(self, *args, **kargs):
         """Override the filter func, which is called by most common operations,
         such that the processed samples can be accessed by nested manner."""
-        if args:
-            args = list(args)
-            # the first positional para is function
-            if args[0] is None:
-                args[0] = lambda x: nested_obj_factory(x)
-            else:
-                args[0] = wrap_func_with_nested_access(args[0])
-        else:
-            if 'function' not in kargs or kargs['function'] is None:
-                kargs['function'] = lambda x: nested_obj_factory(x)
-            else:
-                kargs['function'] = wrap_func_with_nested_access(
-                    kargs['function'])
-
-        if 'new_fingerprint' not in kargs or kargs['new_fingerprint'] is None:
-            new_fingerprint = generate_fingerprint(self, *args, **kargs)
-            kargs['new_fingerprint'] = new_fingerprint
+        args, kargs = self.update_args(args, kargs, is_filter=True)
 
         # For filter, it involves a map and a filter operations, so the final
         # cache files includes two sets with different fingerprint (before and
@@ -270,6 +398,10 @@ class NestedDataset(Dataset):
         cleanup_compressed_cache_files(self)
         return super().cleanup_cache_files()
 
+    @staticmethod
+    def load_from_disk(*args, **kargs):
+        return NestedDataset(Dataset.load_from_disk(*args, **kargs))
+
 
 def nested_query(root_obj: Union[NestedDatasetDict, NestedDataset,
                                  NestedQueryDict], key):
@@ -317,3 +449,17 @@ def nested_query(root_obj: Union[NestedDatasetDict, NestedDataset,
                 return None
 
     return None
+
+
+def add_same_content_to_new_column(sample,
+                                   new_column_name,
+                                   initial_value=None):
+    """
+    A helper function to speed up add_column function. Apply map on this
+    function in parallel instead of using add_column.
+    :param sample: a single sample to add this new column/field.
+    :param new_column_name: the name of this new column/field.
+    :param initial_value: the initial value of this new column/field.
+    """
+    sample[new_column_name] = initial_value
+    return sample

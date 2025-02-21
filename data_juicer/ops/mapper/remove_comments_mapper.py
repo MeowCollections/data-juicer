@@ -1,5 +1,5 @@
 # Some code here has been modified from:
-# https://github.com/togethercomputer/RedPajama-Data/
+# https://github.com/togethercomputer/RedPajama-Data/tree/rp_v1/
 # --------------------------------------------------------
 
 from typing import List, Union
@@ -16,6 +16,8 @@ class RemoveCommentsMapper(Mapper):
 
     Only support 'tex' for now.
     """
+
+    _batched_op = True
 
     def __init__(self,
                  doc_type: Union[str, List[str]] = 'tex',
@@ -37,19 +39,23 @@ class RemoveCommentsMapper(Mapper):
         self.inline = inline
         self.multiline = multiline
 
-    def process(self, sample):
+    def process_batched(self, samples):
         # TODO: remove different comments by sample type
 
-        if self.inline:
-            # remove all in comments within a line
-            sample[self.text_key] = re.sub(pattern=r'[^\\]%.+$',
-                                           repl=r'',
-                                           string=sample[self.text_key],
-                                           flags=re.MULTILINE)
+        for idx, text in enumerate(samples[self.text_key]):
+            if self.inline:
+                # remove all in comments within a line
+                text = re.sub(pattern=r'[^\\]%.+$',
+                              repl=r'',
+                              string=text,
+                              flags=re.MULTILINE)
 
-        if self.multiline:
-            sample[self.text_key] = re.sub(pattern=r'(?m)^%.*\n?',
-                                           repl=r'',
-                                           string=sample[self.text_key],
-                                           flags=re.MULTILINE)
-        return sample
+            if self.multiline:
+                text = re.sub(pattern=r'(?m)^%.*\n?',
+                              repl=r'',
+                              string=text,
+                              flags=re.MULTILINE)
+
+            samples[self.text_key][idx] = text
+
+        return samples

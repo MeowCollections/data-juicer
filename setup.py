@@ -28,11 +28,14 @@ def get_install_requirements(require_f_paths, env_dir='environments'):
 # allowing selective installment based on users' needs
 # TODO: The specific taxonomy and dependencies will be determined
 #  after implementing some preliminary operators and detailed discussions
-min_requires = get_install_requirements(
-    ['minimal_requires.txt', 'science_requires.txt'])
+min_requires = get_install_requirements(['minimal_requires.txt'])
 extra_requires = {
     'mini':
     min_requires,
+    'sci':
+    get_install_requirements(['science_requires.txt']),
+    'dist':
+    get_install_requirements(['dist_requires.txt']),
     'dev':
     get_install_requirements(['dev_requires.txt']),
     'tools':
@@ -40,6 +43,7 @@ extra_requires = {
         ['preprocess_requires.txt', 'quality_classifier_requires.txt']),
 }
 extra_requires['all'] = [v for v in extra_requires.values()]
+extra_requires['sandbox'] = get_install_requirements(['sandbox_requires.txt'])
 
 with open('data_juicer/__init__.py', 'r') as f:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(),
@@ -52,7 +56,7 @@ setuptools.setup(
     name='py-data-juicer',
     version=version,
     url='https://github.com/alibaba/data-juicer',
-    author='SysML team of Alibaba DAMO Academy',
+    author='SysML Team of Alibaba Tongyi Lab',
     description='A One-Stop Data Processing System for Large Language '
     'Models.',
     long_description=readme_md,
@@ -65,6 +69,7 @@ setuptools.setup(
         'console_scripts': [
             'dj-process = data_juicer.tools.process_data:main',
             'dj-analyze = data_juicer.tools.analyze_data:main',
+            'dj-install = data_juicer.tools.dj_install:main',
         ]
     },
     install_requires=min_requires,

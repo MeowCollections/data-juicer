@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple, Union
+from typing import List, Union
 
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 from loguru import logger
@@ -27,7 +27,7 @@ class LocalFormatter(BaseFormatter):
         self,
         dataset_path: str,
         type: str,
-        suffixes: Union[str, List[str], Tuple[str]] = None,
+        suffixes: Union[str, List[str], None] = None,
         text_keys: List[str] = None,
         add_suffix=False,
         **kwargs,
@@ -69,7 +69,7 @@ class LocalFormatter(BaseFormatter):
                                 **self.kwargs)
         if self.add_suffix:
             logger.info('Add suffix info into dataset...')
-            datasets = add_suffixes(datasets)
+            datasets = add_suffixes(datasets, num_proc)
         else:
             from data_juicer.core.data import NestedDataset
             datasets = NestedDataset(
@@ -120,18 +120,25 @@ class RemoteFormatter(BaseFormatter):
         return ds
 
 
-def add_suffixes(datasets: DatasetDict) -> Dataset:
+def add_suffixes(datasets: DatasetDict, num_proc: int = 1) -> Dataset:
     """
     Add suffix filed to datasets.
 
     :param datasets: a DatasetDict object
+    :param num_proc: number of processes to add suffixes
     :return: datasets with suffix features.
     """
     logger.info('Add suffix column for dataset')
+    from data_juicer.core.data import add_same_content_to_new_column
     for key, ds in datasets.items():
         if Fields.suffix not in ds.features:
-            datasets[key] = ds.add_column(name=Fields.suffix,
-                                          column=['.' + key] * ds.num_rows)
+            datasets[key] = ds.map(add_same_content_to_new_column,
+                                   fn_kwargs={
+                                       'new_column_name': Fields.suffix,
+                                       'initial_value': '.' + key
+                                   },
+                                   num_proc=num_proc,
+                                   desc='Adding new column for suffix')
     datasets = concatenate_datasets([ds for _, ds in datasets.items()])
     from data_juicer.core.data import NestedDataset
     return NestedDataset(datasets)
@@ -208,11 +215,28 @@ def unify_format(
 
     # 3. convert relative paths to absolute paths
     if global_cfg:
+        ds_dir = global_cfg.dataset_dir
+        image_key = global_cfg.image_key
+        audio_key = global_cfg.audio_key
+        video_key = global_cfg.video_key
+
+        data_path_keys = []
+        if image_key in dataset.features:
+            data_path_keys.append(image_key)
+        if audio_key in dataset.features:
+            data_path_keys.append(audio_key)
+        if video_key in dataset.features:
+            data_path_keys.append(video_key)
+        if len(data_path_keys) == 0:
+            # no image/audio/video path list in dataset, no need to convert
+            return dataset
+
+        if ds_dir == '':
+            return dataset
+
         logger.info('Converting relative paths in the dataset to their '
                     'absolute version. (Based on the directory of input '
                     'dataset file)')
-        ds_dir = global_cfg.dataset_dir
-        image_key = global_cfg.image_key
 
         # function to convert relative paths to absolute paths
         def rel2abs(sample, path_keys, dataset_dir):
@@ -223,8 +247,8 @@ def unify_format(
                 if not paths:
                     continue
                 new_paths = [
-                    os.path.join(dataset_dir, path) for path in paths
-                    if not os.path.isabs(path)
+                    path if os.path.isabs(path) else os.path.join(
+                        dataset_dir, path) for path in paths
                 ]
                 sample[path_key] = new_paths
             return sample
@@ -232,9 +256,7 @@ def unify_format(
         dataset = dataset.map(rel2abs,
                               num_proc=num_proc,
                               fn_kwargs={
-                                  'path_keys': [
-                                      image_key,
-                                  ],
+                                  'path_keys': data_path_keys,
                                   'dataset_dir': ds_dir
                               })
     else:

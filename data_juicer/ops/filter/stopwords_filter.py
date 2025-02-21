@@ -2,7 +2,9 @@
 # https://huggingface.co/spaces/huggingface/text-data-filtering
 # --------------------------------------------------------
 
-from jsonargparse.typing import ClosedUnitInterval, List
+from typing import List
+
+from pydantic import PositiveInt
 
 from data_juicer.utils.asset_utils import ASSET_DIR, load_words_asset
 from data_juicer.utils.constant import Fields, InterVars, StatsKeys
@@ -13,9 +15,11 @@ from ..common import (SPECIAL_CHARACTERS, get_words_from_document,
                       words_refinement)
 from ..op_fusion import INTER_WORDS
 
+OP_NAME = 'stopwords_filter'
 
-@OPERATORS.register_module('stopwords_filter')
-@INTER_WORDS.register_module('stopwords_filter')
+
+@OPERATORS.register_module(OP_NAME)
+@INTER_WORDS.register_module(OP_NAME)
 class StopWordsFilter(Filter):
     """Filter to keep samples with stopword ratio larger than a specific min
     value."""
@@ -23,10 +27,10 @@ class StopWordsFilter(Filter):
     def __init__(self,
                  lang: str = 'en',
                  tokenization: bool = False,
-                 min_ratio: ClosedUnitInterval = 0.3,
+                 min_ratio: float = 0.3,
                  stopwords_dir: str = ASSET_DIR,
                  use_words_aug: bool = False,
-                 words_aug_group_sizes: List = [2],
+                 words_aug_group_sizes: List[PositiveInt] = [2],
                  words_aug_join_char: str = '',
                  *args,
                  **kwargs):
@@ -55,7 +59,6 @@ class StopWordsFilter(Filter):
         self.words_aug_group_sizes = words_aug_group_sizes
         self.words_aug_join_char = words_aug_join_char
         self.model_key = None
-        self.lang = lang
 
         self.STOPWORDS = load_words_asset(words_dir=stopwords_dir,
                                           words_type='stopwords')
@@ -64,10 +67,10 @@ class StopWordsFilter(Filter):
                 val for vals in self.STOPWORDS.values() for val in vals
             ]
         if tokenization:
-            self.model_key = prepare_model(lang=lang,
-                                           model_type='sentencepiece')
+            self.model_key = prepare_model(model_type='sentencepiece',
+                                           lang=lang)
 
-    def compute_stats(self, sample, context=False):
+    def compute_stats_single(self, sample, context=False):
         # check if it's computed already
         if StatsKeys.stopwords_ratio in sample[Fields.stats]:
             return sample
@@ -77,9 +80,7 @@ class StopWordsFilter(Filter):
         if context and words_key in sample[Fields.context]:
             words = sample[Fields.context][words_key]
         else:
-            tokenizer = get_model(self.model_key,
-                                  lang=self.lang,
-                                  model_type='sentencepiece')
+            tokenizer = get_model(self.model_key)
             words = get_words_from_document(
                 sample[self.text_key],
                 token_func=tokenizer.encode_as_pieces if tokenizer else None)
@@ -116,6 +117,6 @@ class StopWordsFilter(Filter):
         sample[Fields.stats][StatsKeys.stopwords_ratio] = stopwords_ratio
         return sample
 
-    def process(self, sample):
+    def process_single(self, sample):
         return sample[Fields.stats][
             StatsKeys.stopwords_ratio] >= self.min_ratio

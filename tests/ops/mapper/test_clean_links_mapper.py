@@ -1,17 +1,21 @@
 import unittest
 
+from data_juicer.core.data import NestedDataset as Dataset
 from data_juicer.ops.mapper.clean_links_mapper import CleanLinksMapper
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class CleanLinksMapperTest(unittest.TestCase):
+class CleanLinksMapperTest(DataJuicerTestCaseBase):
 
     def setUp(self):
         self.op = CleanLinksMapper()
 
-    def _run_clean_links(self, samples):
-        for sample in samples:
-            result = self.op.process(sample)
-            self.assertEqual(result['text'], result['target'])
+    def _run_clean_links(self, op, samples):
+        dataset = Dataset.from_list(samples)
+        dataset = dataset.map(op.process, batch_size=2)
+                
+        for data in dataset:
+            self.assertEqual(data['text'], data['target'])
 
     def test_lower_ftp_links_text(self):
 
@@ -28,7 +32,8 @@ class CleanLinksMapperTest(unittest.TestCase):
             'text': 'ftp://example.com',
             'target': ''
         }]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_upper_ftp_links_text(self):
 
@@ -45,7 +50,8 @@ class CleanLinksMapperTest(unittest.TestCase):
             'text': 'FTP://EXAMPLE.COM',
             'target': ''
         }]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_lower_https_links_text(self):
 
@@ -61,7 +67,8 @@ class CleanLinksMapperTest(unittest.TestCase):
             'text': 'https://example.com',
             'target': ''
         }]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_upper_https_links_text(self):
 
@@ -77,7 +84,8 @@ class CleanLinksMapperTest(unittest.TestCase):
             'text': 'HTTPS://EXAMPLE.COM',
             'target': ''
         }]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_mixed_https_links_text(self):
 
@@ -93,7 +101,8 @@ class CleanLinksMapperTest(unittest.TestCase):
             'text': '这是个测试,https://example.com',
             'target': '这是个测试,'
         }]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_lower_http_links_text(self):
 
@@ -109,7 +118,8 @@ class CleanLinksMapperTest(unittest.TestCase):
             'text': 'https://example.com',
             'target': ''
         }]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_upper_http_links_text(self):
 
@@ -129,7 +139,8 @@ class CleanLinksMapperTest(unittest.TestCase):
                 'target': ''
             },
         ]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_mixed_http_links_text(self):
 
@@ -145,7 +156,8 @@ class CleanLinksMapperTest(unittest.TestCase):
             'text': '这是个测试,https://example.com',
             'target': '这是个测试,'
         }]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_email_text(self):
 
@@ -159,7 +171,8 @@ class CleanLinksMapperTest(unittest.TestCase):
                 'target': '这是一个测试, sample@example',
             },
         ]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_fake_links_text(self):
 
@@ -183,7 +196,8 @@ class CleanLinksMapperTest(unittest.TestCase):
                 'target': 'This is a test,'
             },
         ]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
 
     def test_no_link_text(self):
 
@@ -201,7 +215,32 @@ class CleanLinksMapperTest(unittest.TestCase):
                 'target': '，。、„”“«»１」「《》´∶：？！（）；–—．～’…━〈〉【】％►',
             },
         ]
-        self._run_clean_links(samples)
+        op = CleanLinksMapper()
+        self._run_clean_links(op, samples)
+
+    def test_replace_links_text(self):
+
+        samples = [
+            {
+                'text': 'ftp://user:password@ftp.example.com:21/',
+                'target': '<LINKS>'
+            },
+            {
+                'text': 'This is a sample for test',
+                'target': 'This is a sample for test',
+            },
+            {
+                'text': 'abcd://ef is a sample for test',
+                'target': '<LINKS> is a sample for test',
+            },
+            {
+                'text':
+                'HTTP://example.com/my-page.html?param1=value1&param2=value2',
+                'target': '<LINKS>'
+            },
+        ]
+        op = CleanLinksMapper(repl='<LINKS>')
+        self._run_clean_links(op, samples)
 
 
 if __name__ == '__main__':

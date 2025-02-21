@@ -1,5 +1,5 @@
 # Part of the code here has been modified from:
-# https://github.com/togethercomputer/RedPajama-Data/tree/main/data_prep/stack_exchange
+# https://github.com/togethercomputer/RedPajama-Data/tree/rp_v1/data_prep/stack_exchange
 # --------------------------------------------------------
 #
 # This tool is used for converting the raw Stack Exchange data downloaded from
@@ -7,7 +7,7 @@
 # jsonl files.
 #
 # For downloading process, please refer to:
-# https://github.com/togethercomputer/RedPajama-Data/tree/main/data_prep/stack_exchange
+# https://github.com/togethercomputer/RedPajama-Data/tree/rp_v1/data_prep/stack_exchange
 #
 # Notice: before you downloading, converting or processing, you might make sure
 # that your drive space is large enough to store the raw data (over 100GB),
@@ -23,7 +23,7 @@ from loguru import logger
 from tqdm import tqdm
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def get_sites_count(path, topk=28):
     """
     Take top-K sites(`.xml`) by its size of content
@@ -57,7 +57,7 @@ def get_sites_count(path, topk=28):
     return counts, sites
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def get_parents(site, counts):
     """
     Find all answers's parent id, and groups by parent id
@@ -90,7 +90,7 @@ def get_parents(site, counts):
     return parents
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def get_qapairs(site, counts, parents):
     """
     Find and group all matched pairs of question and answer in site file
@@ -140,7 +140,7 @@ def get_qapairs(site, counts, parents):
     return qa_pairs
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def process_qa_pair(pair, site_name, site_count):
     """
     Sort answers by their score for question in qa pair sample,
@@ -171,7 +171,7 @@ def process_qa_pair(pair, site_name, site_count):
     }
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def process_site(site, counts, src_dir, target_dir, num_proc=24):
     """
     Convert one raw Stack Exchange site data to jsonl file.
@@ -180,7 +180,7 @@ def process_site(site, counts, src_dir, target_dir, num_proc=24):
         3) sort  answers by their score for each question
     :param site: site name endwith `".xml"`
     :param counts: dict stores pair of site name and its size
-    :parma src_dir: dir path of site
+    :param src_dir: dir path of site
     :param target_dir: path to save jsonl file
     :param num_proc: number of process workers. Default it's 24.
     """
@@ -207,7 +207,7 @@ def process_site(site, counts, src_dir, target_dir, num_proc=24):
             f.write(json.dumps(result) + '\n')
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def main(src_dir, target_dir, topk=28, num_proc=1):
     """
     Convert the raw Stack Exchange data downloaded from from Archive

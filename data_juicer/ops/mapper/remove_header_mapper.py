@@ -1,5 +1,5 @@
 # Some code here has been modified from:
-# https://github.com/togethercomputer/RedPajama-Data/
+# https://github.com/togethercomputer/RedPajama-Data/tree/rp_v1/
 # --------------------------------------------------------
 
 import regex as re
@@ -7,11 +7,12 @@ import regex as re
 from ..base_op import OPERATORS, Mapper
 
 
-# TODO
 @OPERATORS.register_module('remove_header_mapper')
 class RemoveHeaderMapper(Mapper):
     """Mapper to remove headers at the beginning of documents in Latex
     samples."""
+
+    _batched_op = True
 
     def __init__(self, drop_no_head: bool = True, *args, **kwargs):
         """
@@ -35,15 +36,17 @@ class RemoveHeaderMapper(Mapper):
 
         self.drop_no_head = drop_no_head
 
-    def process(self, sample):
+    def process_batched(self, samples):
+        for idx, text in enumerate(samples[self.text_key]):
+            if not re.search(self.pattern, text, flags=re.DOTALL):
+                if self.drop_no_head:
+                    text = ''
+                continue
+            text = re.sub(pattern=self.pattern,
+                          repl=r'\2',
+                          string=text,
+                          flags=re.DOTALL)
 
-        if not re.search(self.pattern, sample[self.text_key], flags=re.DOTALL):
-            if self.drop_no_head:
-                sample[self.text_key] = ''
-            return sample
+            samples[self.text_key][idx] = text
 
-        sample[self.text_key] = re.sub(pattern=self.pattern,
-                                       repl=r'\2',
-                                       string=sample[self.text_key],
-                                       flags=re.DOTALL)
-        return sample
+        return samples

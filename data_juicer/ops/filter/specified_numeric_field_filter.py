@@ -1,6 +1,6 @@
 import sys
 
-from ..base_op import OPERATORS, Filter
+from ..base_op import NON_STATS_FILTERS, OPERATORS, Filter
 
 
 def is_number(s):
@@ -13,7 +13,11 @@ def is_number(s):
     return False
 
 
-@OPERATORS.register_module('specified_numeric_field_filter')
+OP_NAME = 'specified_numeric_field_filter'
+
+
+@NON_STATS_FILTERS.register_module(OP_NAME)
+@OPERATORS.register_module(OP_NAME)
 class SpecifiedNumericFieldFilter(Filter):
     """
     Filter based on specified numeric field information.
@@ -49,10 +53,10 @@ class SpecifiedNumericFieldFilter(Filter):
         self.min_value = min_value
         self.max_value = max_value
 
-    def compute_stats(self, sample):
+    def compute_stats_single(self, sample):
         return sample
 
-    def process(self, sample):
+    def process_single(self, sample):
         if not self.field_key:
             return True
 

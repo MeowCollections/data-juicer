@@ -1,21 +1,30 @@
 from copy import deepcopy
 
-import nlpaug.augmenter.char as nac
-import nlpaug.augmenter.word as naw
-import nlpaug.flow as naf
 from loguru import logger
-from nlpaug.util import Action
+from pydantic import PositiveInt
+
+from data_juicer.utils.lazy_loader import LazyLoader
 
 from ..base_op import OPERATORS, Mapper
 
+nlpaug = LazyLoader('nlpaug', 'nlpaug')
+nac = LazyLoader('nac', 'nlpaug.augmenter.char')
+naw = LazyLoader('naw', 'nlpaug.augmenter.word')
+naf = LazyLoader('naf', 'nlpaug.flow')
 
-@OPERATORS.register_module('nlpaug_en_mapper')
+OP_NAME = 'nlpaug_en_mapper'
+
+
+@OPERATORS.register_module(OP_NAME)
 class NlpaugEnMapper(Mapper):
     """Mapper to simply augment samples in English based on nlpaug library."""
 
+    _batched_op = True
+
     def __init__(self,
                  sequential: bool = False,
-                 aug_num: int = 1,
+                 aug_num: PositiveInt = 1,
+                 keep_original_sample: bool = True,
                  delete_random_word: bool = False,
                  swap_random_word: bool = False,
                  spelling_error_word: bool = False,
@@ -42,6 +51,10 @@ class NlpaugEnMapper(Mapper):
             `sequential` is True, there will be total aug_num augmented samples
             generated. If it's False, there will be (aug_num *
             #opened_aug_method) augmented samples generated.
+        :param keep_original_sample: whether to keep the original sample. If
+            it's set to False, there will be only generated texts in the final
+            datasets and the original texts will be removed. It's True in
+            default.
         :param delete_random_word: whether to open the augmentation method of
             deleting random words from the original texts. e.g. "I love LLM"
             --> "I LLM"
@@ -73,7 +86,6 @@ class NlpaugEnMapper(Mapper):
         :param kwargs: extra args
         """
         super().__init__(*args, **kwargs)
-        self._batched_op = True  # this is a batched OP
 
         self.aug_num = aug_num
         if aug_num >= 10:
@@ -81,9 +93,11 @@ class NlpaugEnMapper(Mapper):
                            f' might generate large number of new samples and '
                            f'requires more memory and disk space.')
         self.sequential = sequential
+        self.keep_original_sample = keep_original_sample
 
         aug_pipeline = []
         # word level
+        Action = nlpaug.util.Action
         if delete_random_word:
             aug_pipeline.append(naw.RandomWordAug(action=Action.DELETE))
         if swap_random_word:
@@ -110,30 +124,34 @@ class NlpaugEnMapper(Mapper):
         else:
             self.aug = aug_pipeline
 
-    def process(self, samples):
+    def process_batched(self, samples):
         # no augmentation methods are opened
         if len(self.aug) == 0:
-            return samples
+            if self.keep_original_sample:
+                return samples
+            else:
+                return {key: [] for key in samples}
 
         texts_to_aug = samples[self.text_key][0]  # batch_size = 1
         res_samples = deepcopy(samples)
 
+        # get augmented texts
         if self.sequential:
             aug_texts = self.aug.augment(texts_to_aug, n=self.aug_num)
-            # add augmented samples to the batch with other replicate fields
-            for key in res_samples:
-                if key == self.text_key:
-                    res_samples[self.text_key] += aug_texts
-                else:
-                    res_samples[key] += res_samples[key] * self.aug_num
         else:
             # apply each aug method to generate several augmented texts
+            aug_texts = []
             for aug_method in self.aug:
-                aug_texts = aug_method.augment(texts_to_aug, n=self.aug_num)
-                res_samples[self.text_key] += aug_texts
-            # add other replicate fields
-            for key in res_samples:
-                if key != self.text_key:
-                    res_samples[key] += res_samples[key] * self.aug_num \
-                                        * len(self.aug)
+                aug_texts += aug_method.augment(texts_to_aug, n=self.aug_num)
+
+        # add augmented samples to the batch with other replicate fields
+        if self.keep_original_sample:
+            res_samples[self.text_key] += aug_texts
+        else:
+            res_samples[self.text_key] = aug_texts
+        # add other replicate fields
+        for key in res_samples:
+            if key != self.text_key:
+                res_samples[key] = res_samples[key] * \
+                                   len(res_samples[self.text_key])
         return res_samples

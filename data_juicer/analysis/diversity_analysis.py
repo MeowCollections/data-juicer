@@ -4,7 +4,7 @@ import pandas as pd
 import spacy
 from loguru import logger
 
-from data_juicer.utils.model_utils import MODEL_ZOO, prepare_model
+from data_juicer.utils.model_utils import get_model, prepare_model
 
 
 # Modify from self_instruct, please refer to
@@ -39,9 +39,9 @@ def find_root_verb_and_its_dobj_in_string(nlp, s, first_sent=True):
     Find the verb and its object closest to the root of lexical tree of input
     string.
 
-    :param nlp: the diversity model to analyse the diversity strings
-    :param s: the string to be analysed
-    :param first_sent: whether to analyse the first sentence in the
+    :param nlp: the diversity model to analyze the diversity strings
+    :param s: the string to be analyzed
+    :param first_sent: whether to analyze the first sentence in the
         input string only. If it's true, return the analysis result of
         the first sentence no matter it's valid or not. If it's false,
         return the first valid result over all sentences
@@ -87,7 +87,7 @@ class DiversityAnalysis:
     result."""
 
     def __init__(self, dataset, output_path, lang_or_model='en'):
-        """Initialization method :param dataset: the dataset to be analysed
+        """Initialization method :param dataset: the dataset to be analyzed
         :param output_path: path to store the analysis results :param
         lang_or_model: the diversity model or a specific language used to load
         the diversity model."""
@@ -104,14 +104,14 @@ class DiversityAnalysis:
 
         :param lang_or_model: the diversity model or a specific language
             used to load the diversity model
-        :param column_name: the name of column to be analysed
+        :param column_name: the name of column to be analyzed
         :return: the analysis result.
         """
         # load diversity model
         lang_or_model = lang_or_model if lang_or_model else self.lang_or_model
         if isinstance(lang_or_model, str):
-            diversity_model = MODEL_ZOO.get(
-                prepare_model(lang_or_model, 'spacy'))
+            model_key = prepare_model('spacy', lang=lang_or_model)
+            diversity_model = get_model(model_key)
         else:
             diversity_model = lang_or_model
 
@@ -129,7 +129,7 @@ class DiversityAnalysis:
         dataset = self.dataset.map(find_verb_noun)
         return pd.DataFrame(dataset)
 
-    def analyse(self,
+    def analyze(self,
                 lang_or_model=None,
                 column_name='text',
                 postproc_func=get_diversity,
@@ -139,8 +139,8 @@ class DiversityAnalysis:
 
         :param lang_or_model: the diversity model or a specific language
             used to load the diversity model
-        :param column_name: the name of column to be analysed
-        :param postproc_func: function to analyse diversity. In default,
+        :param column_name: the name of column to be analyzed
+        :param postproc_func: function to analyze diversity. In default,
             it's function get_diversity
         :param postproc_kwarg: arguments of the postproc_func
         :return:

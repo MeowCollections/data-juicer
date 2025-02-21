@@ -1,12 +1,13 @@
 import unittest
 
-from datasets import Dataset
+from data_juicer.core.data import NestedDataset as Dataset
 
 from data_juicer.ops.deduplicator.document_minhash_deduplicator import \
     DocumentMinhashDeduplicator
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class DocumentMinhashDeduplicatorTest(unittest.TestCase):
+class DocumentMinhashDeduplicatorTest(DataJuicerTestCaseBase):
 
     def _run_minhash_dedup(self, dataset: Dataset, target_list, op):
         dataset = dataset.map(op.compute_hash)

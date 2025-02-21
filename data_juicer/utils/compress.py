@@ -16,7 +16,7 @@ from data_juicer.utils import cache_utils
 
 class FileLock(HF_FileLock):
     """
-    File lock for compresssion or decompression, and
+    File lock for compression or decompression, and
     remove lock file automatically.
     """
 
@@ -45,6 +45,7 @@ class Extractor(HF_Extractor):
     ):
         """
         Extract content from a compressed file.
+
         :param input_path: path to compressed file.
         :param output_path: path to uncompressed file.
         :param extractor_format: extraction format,
@@ -69,6 +70,7 @@ class BaseCompressor(ABC):
     def compress(input_path: Union[Path, str], output_path: Union[Path, str]):
         """
         Compress input file and save to output file.
+
         :param input_path: path to uncompressed file.
         :param output_path: path to compressed file.
         """
@@ -84,6 +86,7 @@ class ZstdCompressor(BaseCompressor):
     def compress(input_path: Union[Path, str], output_path: Union[Path, str]):
         """
         Compress input file and save to output file.
+
         :param input_path: path to uncompressed file.
         :param output_path: path to compressed file.
         """
@@ -104,6 +107,7 @@ class Lz4Compressor(BaseCompressor):
     def compress(input_path: Union[Path, str], output_path: Union[Path, str]):
         """
         Compress a input file and save to output file.
+
         :param input_path: path to uncompressed file.
         :param output_path: path to compressed file.
         """
@@ -123,6 +127,7 @@ class GzipCompressor(BaseCompressor):
     def compress(input_path: Union[Path, str], output_path: Union[Path, str]):
         """
         Compress input file and save to output file.
+
         :param input_path: path to uncompressed file.
         :param output_path: path to compressed file.
         """
@@ -157,6 +162,7 @@ class Compressor:
     ):
         """
         Compress input file and save to output file.
+
         :param input_path: path to uncompressed file.
         :param output_path: path to compressed file.
         :param compressor_format: compression format,
@@ -199,6 +205,7 @@ class CompressManager:
     ):
         """
         Compress input file and save to output file.
+
         :param input_path: path to uncompressed file.
         :param output_path: path to compressed file.
         """
@@ -212,6 +219,7 @@ class CompressManager:
     ):
         """
         Decompress input file and save to output file.
+
         :param input_path: path to compressed file.
         :param output_path: path to uncompressed file.
         """
@@ -235,7 +243,7 @@ class CacheCompressManager:
         self.compressor_extension = '.' + compressor_format
         self.compress_manager = CompressManager(
             compressor_format=compressor_format)
-        self.pattern = re.compile('_\d{5}_of_')  # noqa W605
+        self.pattern = re.compile(r'_\d{5}_of_')
 
     def _get_raw_filename(self, filename: Union[Path, str]):
         """
@@ -254,7 +262,7 @@ class CacheCompressManager:
         """
         return str(filename) + self.compressor_extension
 
-    def _get_cache_diretory(self, ds):
+    def _get_cache_directory(self, ds):
         """
         Get dataset cache directory.
         :param ds: input dataset.
@@ -276,6 +284,7 @@ class CacheCompressManager:
         """
         Get all cache files in the dataset cache directory with fingerprints,
         which ends with specified extension.
+
         :param cache_directory: dataset cache directory.
         :param fingerprints: fingerprints of cache files. String or List are
             accepted. If `None`, we will find all cache files which starts with
@@ -305,6 +314,7 @@ class CacheCompressManager:
                  num_proc: int = 1):
         """
         Compress cache files with fingerprint in dataset cache directory.
+
         :param prev_ds: previous dataset whose cache files need to be
             compressed here.
         :param this_ds: Current dataset that is computed from the previous
@@ -314,7 +324,7 @@ class CacheCompressManager:
             dataset should be compressed.
         :param num_proc: number of processes to compress cache files.
         """
-        # remove cache files from the list of cahce files to be compressed
+        # remove cache files from the list of cache files to be compressed
         prev_cache_names = [item['filename'] for item in prev_ds.cache_files]
         this_cache_names = [item['filename'] for item in this_ds.cache_files] \
             if this_ds else []
@@ -372,13 +382,14 @@ class CacheCompressManager:
         """
         Decompress compressed cache files with fingerprint in
         dataset cache directory.
+
         :param ds: input dataset.
         :param fingerprints: fingerprintd of cache files. String or List are
             accepted. If `None`, we will find all cache files which starts with
             `cache-` and ends with compression format.
         :param num_proc: number of processes to decompress cache files.
         """
-        cache_directory = self._get_cache_diretory(ds)
+        cache_directory = self._get_cache_directory(ds)
         if cache_directory is None:
             return
 
@@ -437,7 +448,7 @@ class CacheCompressManager:
         which starts with `cache-` and ends with compression format
         :param ds: input dataset.
         """
-        cache_directory = self._get_cache_diretory(ds)
+        cache_directory = self._get_cache_directory(ds)
         if cache_directory is None:
             return
         f_names = self._get_cache_file_names(

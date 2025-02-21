@@ -18,9 +18,13 @@
 import inspect
 import os
 import sys
+from io import StringIO
 
 from loguru import logger
 from loguru._file_sink import FileSink
+from tabulate import tabulate
+
+from data_juicer.utils.file_utils import add_suffix_to_filename
 
 LOGGER_SETUP = False
 
@@ -52,12 +56,14 @@ class StreamToLoguru:
                     Default value: (apex, pycocotools).
         """
         self.level = level
-        self.linebuf = ''
         self.caller_names = caller_names
+        self.buffer = StringIO()
+        self.BUFFER_SIZE = 1024 * 1024
 
     def write(self, buf):
         full_name = get_caller_name(depth=1)
         module_name = full_name.rsplit('.', maxsplit=-1)[0]
+        self.buffer.write(buf)
         if module_name in self.caller_names:
             for line in buf.rstrip().splitlines():
                 # use caller level log
@@ -66,8 +72,13 @@ class StreamToLoguru:
             # sys.__stdout__.write(buf)
             logger.opt(raw=True).info(buf)
 
+        self.buffer.truncate(self.BUFFER_SIZE)
+
+    def getvalue(self):
+        return self.buffer.getvalue()
+
     def flush(self):
-        pass
+        self.buffer.flush()
 
 
 def redirect_sys_output(log_level='INFO'):
@@ -76,7 +87,7 @@ def redirect_sys_output(log_level='INFO'):
 
     :param log_level: log level string of loguru. Default value: "INFO".
     """
-    redirect_logger = StreamToLoguru(log_level)
+    redirect_logger = StreamToLoguru(level=log_level)
     sys.stderr = redirect_logger
     sys.stdout = redirect_logger
 
@@ -96,6 +107,7 @@ def setup_logger(save_dir,
                  distributed_rank=0,
                  filename='log.txt',
                  mode='o',
+                 level='INFO',
                  redirect=True):
     """
     Setup logger for training and testing.
@@ -104,6 +116,7 @@ def setup_logger(save_dir,
     :param distributed_rank: device rank when multi-gpu environment
     :param filename: log file name to save
     :param mode: log file write mode, `append` or `override`. default is `o`.
+    :param level: log severity level. It's "INFO" in default.
     :param redirect: whether to redirect system output
     :return: logger instance.
     """
@@ -127,15 +140,91 @@ def setup_logger(save_dir,
         logger.add(
             sys.stderr,
             format=loguru_format,
-            level='INFO',
+            level=level,
             enqueue=True,
         )
         logger.add(save_file)
 
+    # for interest of levels: debug, error, warning
+    logger.add(
+        add_suffix_to_filename(save_file, '_DEBUG'),
+        level='DEBUG',
+        filter=lambda x: 'DEBUG' == x['level'].name,
+        format=loguru_format,
+        enqueue=True,
+        serialize=True,
+    )
+    logger.add(
+        add_suffix_to_filename(save_file, '_ERROR'),
+        level='ERROR',
+        filter=lambda x: 'ERROR' == x['level'].name,
+        format=loguru_format,
+        enqueue=True,
+        serialize=True,
+    )
+    logger.add(
+        add_suffix_to_filename(save_file, '_WARNING'),
+        level='WARNING',
+        filter=lambda x: 'WARNING' == x['level'].name,
+        format=loguru_format,
+        enqueue=True,
+        serialize=True,
+    )
+
     # redirect stdout/stderr to loguru
     if redirect:
-        redirect_sys_output('INFO')
+        redirect_sys_output(level)
     LOGGER_SETUP = True
+
+
+def make_log_summarization(max_show_item=10):
+    error_pattern = r'^An error occurred in (.*?) when ' \
+                    r'processing samples? \"(.*?)\" -- (.*?): (.*?)$'
+    log_file = get_log_file_path()
+    error_log_file = add_suffix_to_filename(log_file, '_ERROR')
+    warning_log_file = add_suffix_to_filename(log_file, '_WARNING')
+
+    import jsonlines as jl
+    import regex as re
+
+    # make error summarization
+    error_dict = {}
+    with jl.open(error_log_file) as reader:
+        for error_log in reader:
+            error_msg = error_log['record']['message']
+            find_res = re.findall(error_pattern, error_msg)
+            if len(find_res) > 0:
+                op_name, sample, error_type, error_msg = find_res[0]
+                error = (op_name, error_type, error_msg)
+                error_dict.setdefault(error, 0)
+                error_dict[error] += 1
+    total_error_count = sum(error_dict.values())
+    # make warning summarization
+    warning_count = 0
+    with jl.open(warning_log_file) as reader:
+        for _ in reader:
+            warning_count += 1
+    # make summary log
+    summary = f'Processing finished with:\n' \
+              f'<yellow>Warnings</yellow>: {warning_count}\n' \
+              f'<red>Errors</red>: {total_error_count}\n'
+    error_items = list(error_dict.items())
+    error_items.sort(key=lambda it: it[1], reverse=True)
+    error_items = error_items[:max_show_item]
+    # convert error items to a table
+    if len(error_items) > 0:
+        error_table = []
+        table_header = [
+            'OP/Method', 'Error Type', 'Error Message', 'Error Count'
+        ]
+        for key, num in error_items:
+            op_name, error_type, error_msg = key
+            error_table.append([op_name, error_type, error_msg, num])
+        table = tabulate(error_table, table_header, tablefmt='fancy_grid')
+        summary += table
+    summary += f'\nError/Warning details can be found in the log file ' \
+               f'[{log_file}] and its related log files.'
+    logger.opt(ansi=True).info(summary)
 
 
 class HiddenPrints:

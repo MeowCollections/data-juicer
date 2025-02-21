@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Union
 
 import dill
 import xxhash
-from datasets.fingerprint import (_CACHING_ENABLED,
+from datasets.fingerprint import (_CACHING_ENABLED, fingerprint_warnings,
                                   format_kwargs_for_fingerprint,
                                   format_transform_for_fingerprint,
                                   generate_random_fingerprint,
@@ -11,7 +11,7 @@ from loguru import logger
 
 
 class Hasher:
-    """Hasher that accepts python objets as inputs."""
+    """Hasher that accepts python objects as inputs."""
 
     dispatch: Dict = {}
 
@@ -54,7 +54,7 @@ def update_fingerprint(fingerprint, transform, transform_args):
     """
     Combining various objects to update the fingerprint.
     """
-    global fingerprint_warnings
+
     hasher = Hasher()
     hasher.update(fingerprint)
     try:

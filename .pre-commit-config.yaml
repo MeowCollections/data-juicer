@@ -33,11 +33,22 @@ repos:
       - id: mixed-line-ending
         exclude: thirdparty/
         args: [ "--fix=lf" ]
+  - repo: local
+    hooks:
+      - id: build-op-doc
+        name: build OP doc
+        entry: python .pre-commit-hooks/build_op_doc.py
+        language: python
+        require_serial: true
+        additional_dependencies:
+          - translators==5.9.3
 
 exclude: |
   (?x)^(
     docs/.*|
     tests/.*|
-    demos/.*|
+    demos/(?!api_service/).*|
+    tools/mm_eval/inception_metrics/.*|
+    thirdparty/easy_animate/.*|
     .*\.md
   )$

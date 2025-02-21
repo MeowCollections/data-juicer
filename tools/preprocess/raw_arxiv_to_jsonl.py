@@ -1,12 +1,12 @@
 # Part of the code here has been modified from:
-# https://github.com/togethercomputer/RedPajama-Data/blob/main/data_prep/arxiv/arxiv_cleaner.py
+# https://github.com/togethercomputer/RedPajama-Data/blob/rp_v1/data_prep/arxiv/arxiv_cleaner.py
 # --------------------------------------------------------
 #
 # This tool is used for converting the raw arxiv data downloaded from S3
 # (ref: https://info.arxiv.org/help/bulk_data_s3.html) to several jsonl files.
 #
 # For downloading process, please refer to:
-# https://github.com/togethercomputer/RedPajama-Data/tree/main/data_prep/arxiv
+# https://github.com/togethercomputer/RedPajama-Data/tree/rp_v1/data_prep/arxiv
 #
 # Notice: before you downloading, converting or processing, you might make sure
 # that your drive space is large enough to store the raw data (over 3TB),
@@ -25,7 +25,7 @@ import jsonlines as jl
 from loguru import logger
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def tex_proj_loader(file_or_dir_path: pathlib.Path):
     """
     Load the tex files from a tar file or a gzip file.
@@ -69,7 +69,7 @@ def tex_proj_loader(file_or_dir_path: pathlib.Path):
     return files_and_content
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def convert_tar_to_jsonl(tar_fp, jsonl_fp, tmp_dir):
     """
     Extract the contents of tex files from tar file, convert and

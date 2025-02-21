@@ -1,12 +1,13 @@
 import unittest
 
-from datasets import Dataset
+from data_juicer.core.data import NestedDataset as Dataset
 
 from data_juicer.ops.selector.topk_specified_field_selector import \
     TopkSpecifiedFieldSelector
+from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
 
-class TopkSpecifiedFieldSelectorTest(unittest.TestCase):
+class TopkSpecifiedFieldSelectorTest(DataJuicerTestCaseBase):
 
     def _run_topk_selector(self, dataset: Dataset, target_list, op):
         dataset = op.process(dataset)

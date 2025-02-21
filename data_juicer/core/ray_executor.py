@@ -1,20 +1,46 @@
-import ray
-import ray.data as rd
+import os
+import shutil
+import time
+
 from loguru import logger
 
 from data_juicer.config import init_configs
-from data_juicer.ops import Filter, Mapper, load_ops
-from data_juicer.utils.constant import Fields
+from data_juicer.core.ray_data import RayDataset
+from data_juicer.ops import load_ops
+from data_juicer.ops.op_fusion import fuse_operators
+from data_juicer.utils.lazy_loader import LazyLoader
+
+from .adapter import Adapter
+
+ray = LazyLoader('ray', 'ray')
+rd = LazyLoader('rd', 'ray.data')
+
+
+class TempDirManager:
+
+    def __init__(self, tmp_dir):
+        self.tmp_dir = tmp_dir
+
+    def __enter__(self):
+        os.makedirs(self.tmp_dir, exist_ok=True)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if os.path.exists(self.tmp_dir):
+            logger.info(f'Removing tmp dir {self.tmp_dir} ...')
+            shutil.rmtree(self.tmp_dir)
 
 
 class RayExecutor:
     """
-    Executor based on Ray [Experimental].
+    Executor based on Ray.
 
     Run Data-Juicer data processing in a distributed cluster.
-        1. Only support Filter and Mapper operators for now.
+
+        1. Support Filter, Mapper and Exact Deduplicator operators for now.
         2. Only support loading `.json` files.
-        2. Advanced functions such as checkpoint, tracer are not supported.
+        3. Advanced functions such as checkpoint, tracer are not supported.
+
     """
 
     def __init__(self, cfg=None):
@@ -27,11 +53,13 @@ class RayExecutor:
 
         self.work_dir = self.cfg.work_dir
 
-        self.ops = None
+        self.adapter = Adapter(self.cfg)
+
         # init ray
         logger.info('Initing Ray ...')
         ray.init(self.cfg.ray_address)
-        self.process_list = self.cfg.process
+        self.tmp_dir = os.path.join(self.work_dir, '.tmp',
+                                    ray.get_runtime_context().get_job_id())
 
     def run(self, load_data_np=None):
         """
@@ -42,45 +70,43 @@ class RayExecutor:
         """
         # 1. load data
         logger.info('Loading dataset with Ray...')
-        dataset = rd.read_json(self.cfg.dataset_path)
 
+        if self.cfg.get('generated_dataset_config', None):
+            generated_dataset_config = self.cfg.generated_dataset_config
+            assert isinstance(generated_dataset_config,
+                              dict) and 'type' in generated_dataset_config
+            args = generated_dataset_config.copy()
+            obj_name = args.pop('type')
+            from data_juicer.format.formatter import FORMATTERS
+            dataset = FORMATTERS.modules[obj_name](**args).load_dataset()
+        else:
+            dataset = RayDataset.read_json(self.cfg.dataset_path)
+
+        # convert all the path in dataset to absolute path
+        dataset = RayDataset(dataset, self.cfg.dataset_path, self.cfg)
         # 2. extract processes
         logger.info('Preparing process operators...')
-        self.process_list, self.ops = load_ops(self.cfg.process,
-                                               self.cfg.op_fusion)
+        ops = load_ops(self.cfg.process)
 
-        # 3. data process
-        # - If tracer is open, trace each op after it's processed
-        # - If checkpoint is open, clean the cache files after each process
-        if Fields.stats not in dataset.columns(fetch_if_missing=False):
-            logger.info(f'columns {dataset.columns(fetch_if_missing=False)}')
-            dataset = dataset.add_column(Fields.stats,
-                                         lambda df: [{}] * len(df))
-        logger.info('Processing data...')
-        for op_cfg, op in zip(self.process_list, self.ops):
-            op_name, _ = list(op_cfg.items())[0]
-            try:
-                if isinstance(op, Mapper):
-                    dataset = dataset.map(op.process)
-                elif isinstance(op, Filter):
-                    dataset = dataset.map(op.compute_stats)
-                    dataset = dataset.filter(op.process)
-                else:
-                    logger.error(
-                        'Ray executor only support Filter and Mapper OPs for '
-                        'now')
-                    raise NotImplementedError
-            except:  # noqa: E722
-                logger.error(f'An error occurred during Op [{op_name}].')
-                import traceback
-                traceback.print_exc()
-                exit(1)
+        if self.cfg.op_fusion:
+            probe_res = None
+            if self.cfg.fusion_strategy == 'probe':
+                logger.info('Probe the OP speed for OP reordering...')
+                probe_res, _ = self.adapter.probe_small_batch(dataset, ops)
 
-            # clean up cache files and record processed ops
-            logger.info(f'Op [{op_name}] Done. Left '
-                        f'{dataset.count()} samples.')
+            logger.info(f'Start OP fusion and reordering with strategy '
+                        f'[{self.cfg.fusion_strategy}]...')
+            ops = fuse_operators(ops, probe_res)
 
-        # 4. data export
-        logger.info('Exporting dataset to disk...')
-        dataset.write_json(self.cfg.export_path, force_ascii=False)
+        with TempDirManager(self.tmp_dir):
+            # 3. data process
+            logger.info('Processing data...')
+            tstart = time.time()
+            dataset.process(ops)
+
+            # 4. data export
+            logger.info('Exporting dataset to disk...')
+            dataset.data.write_json(self.cfg.export_path, force_ascii=False)
+            tend = time.time()
+            logger.info(f'All Ops are done in {tend - tstart:.3f}s.')
         return dataset

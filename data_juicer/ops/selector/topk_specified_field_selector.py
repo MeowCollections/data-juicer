@@ -1,19 +1,12 @@
 import heapq
-import sys
+from typing import Optional
 
-from jsonargparse.typing import ClosedUnitInterval, PositiveInt
+from pydantic import Field, PositiveInt
+from typing_extensions import Annotated
+
+from data_juicer.utils.common_utils import stats_to_number
 
 from ..base_op import OPERATORS, Selector
-
-
-def to_number(s, reverse=True):
-    try:
-        return float(s)
-    except Exception:
-        if reverse:
-            return -sys.maxsize
-        else:
-            return sys.maxsize
 
 
 @OPERATORS.register_module('topk_specified_field_selector')
@@ -23,8 +16,9 @@ class TopkSpecifiedFieldSelector(Selector):
 
     def __init__(self,
                  field_key: str = '',
-                 top_ratio: ClosedUnitInterval = None,
-                 topk: PositiveInt = None,
+                 top_ratio: Optional[Annotated[float,
+                                               Field(ge=0, le=1)]] = None,
+                 topk: Optional[PositiveInt] = None,
                  reverse: bool = True,
                  *args,
                  **kwargs):
@@ -85,7 +79,8 @@ class TopkSpecifiedFieldSelector(Selector):
                     assert key in field_value.keys(), "'{}' not in {}".format(
                         key, field_value.keys())
                     field_value = field_value[key]
-                field_value_list.append(to_number(field_value, self.reverse))
+                field_value_list.append(
+                    stats_to_number(field_value, self.reverse))
 
         if self.reverse:
             select_index = heapq.nlargest(int(select_num), range(len(dataset)),
