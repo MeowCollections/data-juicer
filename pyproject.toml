@@ -83,6 +83,7 @@ vision = [
     "scenedetect[opencv]",  # Scene detection
     "ultralytics",  # YOLO models
     "rembg",  # Background removal
+    "decord", # video/audio handling
 ]
 
 # Natural Language Processing
