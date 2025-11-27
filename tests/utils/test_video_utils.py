@@ -1,11 +1,27 @@
 import os
-import cv2
 import shutil
 import unittest
 import numpy as np
+import subprocess
 
 from data_juicer.utils.video_utils import Clip, AVReader, FFmpegReader, DecordReader
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
+
+
+def is_valid_mp4_ffprobe(file_path):
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+           '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', file_path]
+    output = subprocess.run(cmd, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, timeout=10)
+    
+    if output.returncode != 0:
+        return False
+    if not output.stdout.decode().strip():
+        return False
+    return True
 
 
 class TestVideoReader(DataJuicerTestCaseBase):
@@ -181,14 +197,17 @@ class TestVideoReader(DataJuicerTestCaseBase):
     def test_extract_clip_output_path(self):
         test_video_path = self.vid_path1
         backends = self.get_backends()
+        backends.pop('decord')
         
-        start_time, end_time = 1.0, 3.0
+        start_time, end_time = 0, None
         clip_results = {}
         readers = {}
-        
+
+        output_clips_path = []
         try:
             for name, cls in backends.items():
                 output_path = os.path.join(self.temp_output_path, f'{name}_out.mp4')
+                output_clips_path.append(output_path)
                 reader = cls(test_video_path)
                 readers[name] = reader
                 clip = reader.extract_clip(start_time, end_time, output_path=output_path)
@@ -201,9 +220,26 @@ class TestVideoReader(DataJuicerTestCaseBase):
                 self.assertEqual(clip.frames, None)
                 self.assertEqual(clip.path, output_path)
                 self.assertTrue(os.path.exists(output_path))
+                self.assertTrue(is_valid_mp4_ffprobe(output_path))
         finally:
             for reader in readers.values():
                 reader.close()
+        
+        self.assertEqual(len(output_clips_path), 2)
+
+        # check clip content
+        check_backends = self.get_backends()
+        check_readers = {}
+        for clip_path in output_clips_path:
+            try:
+                for check_name, check_cls in check_backends.items():
+                    check_reader = check_cls(clip_path)
+                    check_readers[check_name] = check_reader
+                    self.assertListEqual(check_reader.extract_keyframes().indices, [0, 144, 237])
+                    self.assertEqual(len(list(check_reader.extract_frames())), 282)
+            finally:
+                for check_reader in check_readers.values():
+                    check_reader.close()
 
     def test_context_manager(self):
         test_video_path = self.vid_path1

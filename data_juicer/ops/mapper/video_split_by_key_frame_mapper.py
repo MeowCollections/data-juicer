@@ -49,7 +49,7 @@ class VideoSplitByKeyFrameMapper(Mapper):
         :param save_dir: The directory where generated video files will be stored.
             If not specified, outputs will be saved in the same directory as their corresponding input files.
             This path can alternatively be defined by setting the `DJ_PRODUCED_DATA_DIR` environment variable.
-        :param video_backend: video backend, can be `ffmpeg`, `av` or `decord`.
+        :param video_backend: video backend, can be `ffmpeg`, `av`.
         :param args: extra args
         :param kwargs: extra args
         """
@@ -60,7 +60,7 @@ class VideoSplitByKeyFrameMapper(Mapper):
         self.extra_args = kwargs
         self.save_dir = save_dir
         self.video_backend = video_backend
-        assert self.video_backend in ["ffmpeg", "av", "decord"]
+        assert self.video_backend in ["ffmpeg", "av"]
 
     def get_split_key_frame(self, video_key, container):
         timestamps = container.extract_keyframes().pts_time
@@ -75,7 +75,7 @@ class VideoSplitByKeyFrameMapper(Mapper):
                 count += 1
 
         split_video_key = add_suffix_to_filename(unique_video_key, f"_{count}")
-        if container.extract_clip(timestamps[-1], None, split_video_key):
+        if timestamps and container.extract_clip(timestamps[-1], None, split_video_key):
             split_video_keys.append(split_video_key)
         return split_video_keys
 

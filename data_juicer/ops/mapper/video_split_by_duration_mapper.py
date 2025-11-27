@@ -67,7 +67,7 @@ class VideoSplitByDurationMapper(Mapper):
         :param save_dir: The directory where generated video files will be stored.
             If not specified, outputs will be saved in the same directory as their corresponding input files.
             This path can alternatively be defined by setting the `DJ_PRODUCED_DATA_DIR` environment variable.
-        :param video_backend: video backend, can be `ffmpeg`, `av` or `decord`.
+        :param video_backend: video backend, can be `ffmpeg`, `av`.
         :param args: extra args
         :param kwargs: extra args
         """
@@ -81,7 +81,7 @@ class VideoSplitByDurationMapper(Mapper):
         self.extra_args = kwargs
         self.save_dir = save_dir
         self.video_backend = video_backend
-        assert self.video_backend in ["ffmpeg", "av", "decord"]
+        assert self.video_backend in ["ffmpeg", "av"]
 
     def split_videos_by_duration(self, video_key, container):
         video_duration = container.metadata.duration

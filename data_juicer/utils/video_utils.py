@@ -578,12 +578,9 @@ class FFmpegReader(VideoReader):
             [
                 "-c",
                 "copy",  # Stream copy (fast, no re-encoding)
-                "-avoid_negative_ts",
-                "make_zero",  # Handle negative timestamps,
                 "-f",
                 "mp4",
-                "-movflags",
-                "frag_keyframe+empty_moov",
+                # "-movflags", "frag_keyframe+empty_moov",  # opening when mounting oss storage may avoid unexpected errors.
             ]
         )
 
@@ -720,10 +717,7 @@ class DecordReader(VideoReader):
 
         start_frame, end_frame = self._get_frame_index_by_time_span(start_time, end_time)
 
-        # use CPU context to read video
-        ctx = decord.cpu(0)
-        vr = decord.VideoReader(self.video_source, ctx=ctx)
-        key_indices = vr.get_key_indices()
+        key_indices = self.reader.get_key_indices()
 
         # filter key frames within the specified time range
         filtered_key_indices = []
@@ -735,10 +729,10 @@ class DecordReader(VideoReader):
             print(f"Warning: No keyframes found between {start_time}s and {end_time}s")
             return Frames(frames=[], indices=[], pts_time=[])
 
-        key_frames = vr.get_batch(filtered_key_indices)
+        key_frames = self.reader.get_batch(filtered_key_indices)
         key_times = []
         for idx in filtered_key_indices:
-            start_pts, _ = vr.get_frame_timestamp(idx)
+            start_pts, _ = self.reader.get_frame_timestamp(idx)
             key_times.append(start_pts)
         key_frames = key_frames.asnumpy()
 
@@ -754,22 +748,14 @@ class DecordReader(VideoReader):
         :param output_path: the path to output video.
         :param to_numpy: whether to return clip data as numpy array and save to Clip.frames.
         :return: Clip object.
-
-        Note:
-        - When saving to output_path (video file mode):
-            1. This implementation uses full re-encoding with OpenCV's VideoWriter,
-            which is slower than stream copy methods and may cause quality loss
-            2. The output video uses MPEG-4 codec (mp4v fourcc) with default encoding parameters,
-            which may not be optimal for quality/size balance
-            3. For large-scale video processing, consider using FFmpeg-based implementations
-            (see AVReader/FFmpegReader) for better performance.
         """
-        self.check_time_span(start_time, end_time)
-
         if not to_numpy:
             raise ValueError("'to_numpy' must be True when using decord")
 
-        fps = self.metadata.fps
+        if output_path:
+            raise NotImplementedError("'output_path' is not supported when using decord")
+
+        self.check_time_span(start_time, end_time)
 
         # Calculate frame indices
         start_frame, end_frame = self._get_frame_index_by_time_span(start_time, end_time)
@@ -785,30 +771,12 @@ class DecordReader(VideoReader):
         if len(clip) == 0:
             return None
 
-        frames = None
-        if output_path:
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            num_frames, height, width, channel = clip.shape
-            # Initialize video writer
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-            for i in range(clip.shape[0]):
-                frame = clip[i]
-                # Convert decord frame to BGR format for OpenCV
-                bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                out.write(bgr_frame)
-
-            out.release()
-        else:
-            # Return numpy array of frames
-            frames = clip
-
         return Clip(
             # id=uuid.uuid4(),
             source_video=self.video_source,
             path=output_path,
             span=(start_time, end_time),
-            frames=frames,
+            frames=clip,
         )
 
     def close(self):
