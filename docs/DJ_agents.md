@@ -1,8 +1,8 @@
-# DataJuicer Agent
+# DataJuicer Agents
 
 A multi-agent data processing system built on [AgentScope](https://github.com/agentscope-ai/agentscope) and [Data-Juicer (DJ)](https://github.com/datajuicer/data-juicer). This project demonstrates how to leverage the natural language understanding capabilities of large language models, enabling non-expert users to easily harness the powerful data processing capabilities of Data-Juicer.
 
-## 🎯 Why DataJuicer Agent?
+## 🎯 Why DataJuicer Agents?
 
 In the actual work of large model R&D and applications, **data processing remains a high-cost, low-efficiency, and hard-to-reproduce process**. Many teams spend more time on data analysis, cleaning and synthesis than on model training, requirement alignment and app development.
 
@@ -10,11 +10,11 @@ We hope to liberate developers from tedious script assembly through agent techno
 
 **Data directly defines the upper limit of model capabilities**. What truly determines model performance are multiple dimensions such as **quality, diversity, harmfulness control, and task matching** of data. Optimizing data is essentially optimizing the model itself. To do this efficiently, we need a systematic toolset.
 
-DataJuicer Agent is designed to support the new paradigm of **data-model co-optimization** as an intelligent collaboration system.
+DataJuicer Agents is designed to support the new paradigm of **data-model co-optimization** as an intelligent collaboration system.
 
 ## 📋 Table of Contents
 
-- [🎯 Why DataJuicer Agent?](#-why-datajuicer-agent)
+- [🎯 Why DataJuicer Agents?](#-why-datajuicer-agents)
 - [📋 Table of Contents](#-table-of-contents)
 - [What Does This Agent Do?](#what-does-this-agent-do)
 - [Architecture](#architecture)
@@ -57,7 +57,7 @@ Data-Juicer (DJ) is an **open-source processing system covering the full lifecyc
 - **Collaborative Development Platform (DJ-Sandbox)**: Introduces A/B Test and Scaling Law concepts, using small-scale experiments to drive large-scale optimization
 - **Natural Language Interaction Layer (DJ-Agents)**: Enables developers to build data pipelines through conversational interfaces using Agent technology
 
-DataJuicer Agent is not a simple Q&A bot, but an **intelligent collaborator for data processing**. Specifically, it can:
+DataJuicer Agents is not a simple Q&A bot, but an **intelligent collaborator for data processing**. Specifically, it can:
 
 - **Intelligent Query**: Automatically match the most suitable operators based on natural language descriptions (precisely locating from nearly 200 operators)
 - **Automated Pipeline**: Describe data processing needs, automatically generate Data-Juicer YAML configurations and execute them
@@ -69,7 +69,7 @@ DataJuicer Agent is not a simple Q&A bot, but an **intelligent collaborator for 
 
 ### Multi-Agent Routing Architecture
 
-DataJuicer Agent adopts a **multi-agent routing architecture**, which is key to system scalability. When a user inputs a natural language request, the **Router Agent** first performs task triage to determine whether it's a standard data processing task or a custom requirement that needs new capabilities.
+DataJuicer Agents adopts a **multi-agent routing architecture**, which is key to system scalability. When a user inputs a natural language request, the **Router Agent** first performs task triage to determine whether it's a standard data processing task or a custom requirement that needs new capabilities.
 
 ```
 User Query  
@@ -131,11 +131,11 @@ uv pip install -e .
 > 
 > 2. Install it in editable mode:
 >    ```bash
->    uv pip install /path/to/data-juicer -e
+>    uv pip install -e /path/to/data-juicer
 >    ```
 >    or
 >    ```bash
->    pip install /path/to/data-juicer -e
+>    pip install -e /path/to/data-juicer
 >    ```
 > 
 > Editable mode installation is essential to ensure the agent can access real-time operator updates.
@@ -158,11 +158,11 @@ export DATA_JUICER_PATH="your-data-juicer-path"
 
 ### Usage
 
-Choose the running mode using the `-u` or `--use_studio` parameter:
+Choose the running mode using the `-u` or `--use-studio` parameter:
 
 ```bash
 # Use AgentScope Studio's interactive interface (please install and start AgentScope Studio first)
-dj-agents --use_studio True
+dj-agents --use-studio
 
 # Or use command line mode directly (default)
 dj-agents
@@ -207,7 +207,7 @@ The entire process is both automated and explainable. Users can intervene at any
 
 <details>
 <summary>View Complete Example Log (from AgentScope Studio)</summary>
-<img src="assets/dj_agent_image.png" width="100%">
+<img src="imgs/dj_agent_image.png" width="100%">
 </details>
 
 **Example Execution Flow:**
@@ -256,7 +256,7 @@ The entire process transforms vague requirements into runnable, testable, and re
 
 <details>
 <summary>View Complete Example Log (from AgentScope Studio)</summary>
-<img src="assets/dj_dev_agent_image.png" width="100%">
+<img src="imgs/dj_dev_agent_image.png" width="100%">
 </details>
 
 ## Advanced Features
@@ -332,7 +332,7 @@ Configure the service address in `configs/mcp_config.json`:
 
 #### Usage Methods
 
-Enable MCP Agent to replace DJ Agent:
+Enable MCP Agent to replace Data Processing Agent:
 
 ```bash
 # Enable MCP Agent and Dev Agent
@@ -358,7 +358,7 @@ At the same time, Formatter and Memory can also be replaced. This design allows 
 
 ### Extending New Agents
 
-DataJuicer Agent is an open framework. The core is the `agents2toolkit` function—it can automatically wrap any Agent as a tool callable by the Router.
+DataJuicer Agents is an open framework. The core is the `agents2toolkit` function—it can automatically wrap any Agent as a tool callable by the Router.
 
 Simply add your Agent instance to the `agents` list, and the Router will dynamically generate corresponding tools at runtime and automatically route based on task semantics.
 
@@ -437,4 +437,4 @@ A: Agents handle data via file references (paths) rather than direct uploads. Pl
   - [AgentScope](https://github.com/agentscope-ai/agentscope)
   - [DataJuicer](https://github.com/datajuicer/data-juicer)
 
-**Contributing**: Welcome to submit Issues and Pull Requests to improve AgentScope, DataJuicer Agent, and DataJuicer. If you encounter problems during use or have feature suggestions, please feel free to contact us.
+**Contributing**: Welcome to submit Issues and Pull Requests to improve AgentScope, DataJuicer Agents, and DataJuicer. If you encounter problems during use or have feature suggestions, please feel free to contact us.
