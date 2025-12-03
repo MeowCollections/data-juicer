@@ -64,12 +64,11 @@ dependencies = [
 [project.optional-dependencies]
 # Generic ML & DL
 generic = [
-    "torch==2.6.0",  # PyTorch
-    "transformers>=4.47.0,<4.55.0",  # Hugging Face Transformers
-    "transformers_stream_generator",  # Stream generation for Transformers
+    "torch==2.8.0",  # PyTorch
+    "transformers==4.57.1",  # Hugging Face Transformers
     "einops",  # Tensor operations
     "accelerate",  # Model acceleration
-    "vllm==0.8.5.post1",  # LLM serving
+    "vllm==0.11.0",  # LLM serving
     "onnxruntime",  # ONNX runtime
     "cudf-cu12==25.4.0", # dataframe on GPU
 ]
@@ -84,6 +83,7 @@ vision = [
     "ultralytics",  # YOLO models
     "rembg",  # Background removal
     "decord", # video/audio handling
+    "qwen-vl-utils==0.0.14",  # for Qwen-VL
 ]
 
 # Natural Language Processing
@@ -107,6 +107,7 @@ nlp = [
 # Audio Processing
 audio = [
     "torchaudio",  # Audio processing with PyTorch
+    "torchcodec==0.7",
     "soundfile",  # audio handling
     "ffmpeg-python",
     "audiomentations",
@@ -114,7 +115,7 @@ audio = [
 
 # Distributed Computing
 distributed = [
-    "ray[default]==2.47.1",  # distributed computing
+    "ray[default]>=2.48.0",  # distributed computing
     "pyspark==3.5.5",  # distributed data processing
     "s3fs",  # S3 filesystem support for cloud storage
 ]
