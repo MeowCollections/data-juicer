@@ -79,13 +79,19 @@ class ConfigTest(DataJuicerTestCaseBase):
                         'history_key': 'history',
                         'accelerator': None,
                         'num_proc': 4,
-                        'cpu_required': None,
-                        'mem_required': None,
-                        'gpu_required': None,
+                        'num_cpus': None,
+                        'memory': None,
+                        'num_gpus': None,
                         'turbo': False,
                         'index_key': None,
                         'skip_op_error': True,
                         'work_dir': WORKDIR,
+                        'cpu_required': None,
+                        'gpu_required': None,
+                        'mem_required': None,
+                        'ray_execution_mode': None,
+                        'runtime_env': None,
+
                     }
                 }, 'nested dict load fail, for nonparametric op')
             self.assertDictEqual(
@@ -110,13 +116,18 @@ class ConfigTest(DataJuicerTestCaseBase):
                         'accelerator': None,
                         'num_proc': 4,
                         'stats_export_path': None,
-                        'cpu_required': None,
-                        'mem_required': None,
+                        'num_cpus': None,
+                        'memory': None,
                         'turbo': False,
-                        'gpu_required': None,
+                        'num_gpus': None,
                         'index_key': None,
                         'skip_op_error': True,
                         'work_dir': WORKDIR,
+                        'cpu_required': None,
+                        'gpu_required': None,
+                        'mem_required': None,
+                        'ray_execution_mode': None,
+                        'runtime_env': None,
                     }
                 }, 'nested dict load fail, un-expected internal value')
 
@@ -190,13 +201,18 @@ class ConfigTest(DataJuicerTestCaseBase):
                         'accelerator': None,
                         'num_proc': 4,
                         'stats_export_path': None,
-                        'cpu_required': None,
-                        'mem_required': None,
-                        'gpu_required': None,
+                        'num_cpus': None,
+                        'memory': None,
+                        'num_gpus': None,
                         'turbo': False,
                         'index_key': None,
                         'skip_op_error': True,
                         'work_dir': WORKDIR,
+                        'cpu_required': None,
+                        'gpu_required': None,
+                        'mem_required': None,
+                        'ray_execution_mode': None,
+                        'runtime_env': None,
                     }
                 })
             self.assertDictEqual(
@@ -221,13 +237,18 @@ class ConfigTest(DataJuicerTestCaseBase):
                         'accelerator': None,
                         'num_proc': 4,
                         'stats_export_path': None,
-                        'cpu_required': None,
-                        'mem_required': None,
+                        'num_cpus': None,
+                        'memory': None,
                         'turbo': False,
-                        'gpu_required': None,
+                        'num_gpus': None,
                         'index_key': None,
                         'skip_op_error': True,
                         'work_dir': WORKDIR,
+                        'cpu_required': None,
+                        'gpu_required': None,
+                        'mem_required': None,
+                        'ray_execution_mode': None,
+                        'runtime_env': None,
                     }
                 })
             self.assertDictEqual(
@@ -252,13 +273,18 @@ class ConfigTest(DataJuicerTestCaseBase):
                         'accelerator': None,
                         'num_proc': 4,
                         'stats_export_path': None,
-                        'cpu_required': None,
-                        'mem_required': None,
+                        'num_cpus': None,
+                        'memory': None,
                         'turbo': False,
-                        'gpu_required': None,
+                        'num_gpus': None,
                         'index_key': None,
                         'skip_op_error': True,
                         'work_dir': WORKDIR,
+                        'cpu_required': None,
+                        'gpu_required': None,
+                        'mem_required': None,
+                        'ray_execution_mode': None,
+                        'runtime_env': None,
                     }
                 })
             self.assertDictEqual(
@@ -283,13 +309,18 @@ class ConfigTest(DataJuicerTestCaseBase):
                         'accelerator': None,
                         'num_proc': 4,
                         'stats_export_path': None,
-                        'cpu_required': None,
-                        'mem_required': None,
+                        'num_cpus': None,
+                        'memory': None,
                         'turbo': False,
-                        'gpu_required': None,
+                        'num_gpus': None,
                         'index_key': None,
                         'skip_op_error': True,
                         'work_dir': WORKDIR,
+                        'cpu_required': None,
+                        'gpu_required': None,
+                        'mem_required': None,
+                        'ray_execution_mode': None,
+                        'runtime_env': None,
                     }
                 })
             self.assertDictEqual(
@@ -314,13 +345,18 @@ class ConfigTest(DataJuicerTestCaseBase):
                         'accelerator': None,
                         'num_proc': 4,
                         'stats_export_path': None,
-                        'cpu_required': None,
-                        'mem_required': None,
+                        'num_cpus': None,
+                        'memory': None,
                         'turbo': False,
-                        'gpu_required': None,
+                        'num_gpus': None,
                         'index_key': None,
                         'skip_op_error': True,
                         'work_dir': WORKDIR,
+                        'cpu_required': None,
+                        'gpu_required': None,
+                        'mem_required': None,
+                        'ray_execution_mode': None,
+                        'runtime_env': None,
                     }
                 })
 
@@ -331,7 +367,7 @@ class ConfigTest(DataJuicerTestCaseBase):
 
         base_class_params = {
             'text_key', 'image_key', 'image_bytes_key', 'audio_key', 'video_key', 'query_key', 'response_key',
-            'history_key', 'accelerator', 'turbo', 'batch_size', 'num_proc', 'cpu_required', 'mem_required', 'work_dir',
+            'history_key', 'accelerator', 'turbo', 'batch_size', 'num_proc', 'num_cpus', 'memory', 'work_dir',
         }
 
         parser = ArgumentParser(default_env=True, default_config_files=None)

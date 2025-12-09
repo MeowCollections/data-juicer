@@ -78,7 +78,7 @@ class TextEmbdSimilarityFilter(Filter):
 
         if model_params is None:
             model_params = {}
-        kwargs["mem_required"] = "1500MB" if kwargs.get("mem_required", 0) == 0 else kwargs["mem_required"]
+        kwargs["memory"] = "1500MB" if kwargs.get("memory", 0) == 0 else kwargs["memory"]
         super().__init__(*args, **kwargs)
         self.api_or_hf_model = api_or_hf_model
         self.is_hf_model = is_hf_model

@@ -56,7 +56,7 @@ class ImageAestheticsFilter(Filter):
         :param args: Extra positional arguments.
         :param kwargs: Extra keyword arguments.
         """
-        kwargs["mem_required"] = "1500MB" if kwargs.get("mem_required", 0) == 0 else kwargs["mem_required"]
+        kwargs["memory"] = "1500MB" if kwargs.get("memory", 0) == 0 else kwargs["memory"]
         super().__init__(*args, **kwargs)
         if hf_scorer_model == "":
             hf_scorer_model = "shunk031/aesthetics-predictor-v2-sac-logos-ava1-l14-linearMSE"

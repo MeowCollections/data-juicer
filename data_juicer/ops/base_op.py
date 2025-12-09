@@ -156,8 +156,26 @@ class OP:
         :param history_key: the key name of field that stores history of
             queries and responses
         :param index_key: index the samples before process if not None
+        :param system_key: the key name of field that stores system prompts
+        :param instruction_key: the key name of field that stores instruction
+        :param index_key: the key name of field that stores index
         :param batch_size: the batch size for processing
         :param work_dir: the working directory for this operator
+        :param skip_op_error: whether to skip the error when processing samples
+
+        # Ray related parameters
+        :param num_cpus: number of CPUs required for this operator, only used when
+            running in Ray mode
+        :param num_gpus: number of GPUs required for this operator, only used when
+            running in Ray mode
+        :param memory: memory size required for this operator, only used when
+            running in Ray mode
+        :param runtime_env: runtime environment for this operator, only used when
+            running in Ray mode. More details can be found in Ray documentation.
+        :param ray_execution_mode: execution mode in Ray, can be "actor" or "task" or None,
+            if None, the "actor" mode is used when the operator is a CUDA operator,
+            and the "task" mode is used if the operator is a CPU operator.
+
         """
         # init data keys
         self.text_key = kwargs.get("text_key", "text")
@@ -202,6 +220,38 @@ class OP:
         if isinstance(self.mem_required, str):
             self.mem_required = size_to_bytes(self.mem_required) / 1024**3
 
+        self.num_cpus = kwargs.get("num_cpus", None)
+        self.num_gpus = kwargs.get("num_gpus", None)
+        self.memory = kwargs.get("memory", None)
+        if self.memory and isinstance(self.memory, str):
+            self.memory = size_to_bytes(self.memory) / 1024**3
+        # Optional[Union[Dict[str, Any], "RuntimeEnv"]]
+        self.runtime_env = kwargs.get("runtime_env", None)
+        self.ray_execution_mode = kwargs.get("ray_execution_mode", None)
+        assert self.ray_execution_mode in [None, "actor", "task"]
+
+        # Local import to avoid logger being serialized in multiprocessing
+        from loguru import logger
+
+        if self.cpu_required:
+            logger.warning(
+                "The argument ``cpu_required`` will be deprecated. Please specify argument ``num_cpus`` instead."
+            )
+            if self.num_cpus is None:
+                self.num_cpus = self.cpu_required
+        if self.gpu_required:
+            logger.warning(
+                "The argument ``gpu_required`` will be deprecated. Please specify argument ``num_gpus`` instead."
+            )
+            if self.num_gpus is None:
+                self.num_gpus = self.gpu_required
+        if self.mem_required:
+            logger.warning(
+                "The argument ``mem_required`` will be deprecated. Please specify argument ``memory`` instead."
+            )
+            if self.memory is None:
+                self.memory = self.mem_required
+
         self.turbo = kwargs.get("turbo", False)
 
         # nested wrappers
@@ -223,6 +273,12 @@ class OP:
     def is_batched_op(self):
         return self._batched_op
 
+    def use_ray_actor(self):
+        if self.ray_execution_mode:
+            return self.ray_execution_mode == "actor"
+
+        return self.use_cuda()
+
     def process(self, *args, **kwargs):
         raise NotImplementedError
 
@@ -233,9 +289,7 @@ class OP:
         # Local import to avoid logger being serialized in multiprocessing
         from loguru import logger
 
-        op_proc = calculate_np(
-            self._name, self.mem_required, self.cpu_required or 1, self.use_cuda(), self.gpu_required
-        )
+        op_proc = calculate_np(self._name, self.memory, self.num_cpus or 1, self.use_cuda(), self.num_gpus)
         if not self.use_auto_proc():
             op_proc = min(op_proc, self.num_proc)
         logger.debug(f"Op [{self._name}] running with number of procs:{op_proc}")

@@ -84,7 +84,7 @@ class VideoCaptioningFromSummarizerMapper(Mapper):
         :param args: extra args
         :param kwargs: extra args
         """
-        kwargs["mem_required"] = "40GB" if kwargs.get("mem_required", 0) == 0 else kwargs["mem_required"]
+        kwargs["memory"] = "40GB" if kwargs.get("memory", 0) == 0 else kwargs["memory"]
         super().__init__(*args, **kwargs)
         LazyLoader.check_packages(
             [

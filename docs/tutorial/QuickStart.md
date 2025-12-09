@@ -37,7 +37,7 @@ dj-process --config demos/process_simple/process.yaml
 - **Note:** For some operators that involve third-party models or resources that are not stored locally on your computer, it might be slow for the first running because these ops need to download corresponding resources into a directory first.
 The default download cache directory is `~/.cache/data_juicer`. Change the cache location by setting the shell environment variable, `DATA_JUICER_CACHE_HOME` to another directory, and you can also change `DATA_JUICER_MODELS_CACHE` or `DATA_JUICER_ASSETS_CACHE` in the same way:
 
-- **Note:** When using operators with third-party models, it's necessary to declare the corresponding `mem_required` in the configuration file (you can refer to the settings in the `data_juicer/config/config_all.yaml` file). During runtime, Data-Juicer will control the number of processes based on memory availability and the memory requirements of the operator models to achieve better data processing efficiency. When running with CUDA environments, if the mem_required for an operator is not declared correctly, it could potentially lead to a CUDA Out of Memory issue.
+- **Note:** When using operators with third-party models, it's necessary to declare the corresponding `memory` in the configuration file (you can refer to the settings in the `data_juicer/config/config_all.yaml` file). During runtime, Data-Juicer will control the number of processes based on memory availability and the memory requirements of the operator models to achieve better data processing efficiency. When running with CUDA environments, if the memory for an operator is not declared correctly, it could potentially lead to a CUDA Out of Memory issue.
 
 ```shell
 # cache home

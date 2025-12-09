@@ -53,7 +53,7 @@ class ImageWatermarkFilter(Filter):
         :param args: extra args
         :param kwargs: extra args
         """
-        kwargs["mem_required"] = "500MB" if kwargs.get("mem_required", 0) == 0 else kwargs["mem_required"]
+        kwargs["memory"] = "500MB" if kwargs.get("memory", 0) == 0 else kwargs["memory"]
         super().__init__(*args, **kwargs)
         self.prob_threshold = prob_threshold
         if any_or_all not in ["any", "all"]:

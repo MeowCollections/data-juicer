@@ -115,7 +115,7 @@ class VideoCaptioningFromVLMMapper(Mapper):
         :param args: extra args
         :param kwargs: extra kwargs
         """
-        kwargs["mem_required"] = "70GB" if kwargs.get("mem_required", 0) == 0 else kwargs["mem_required"]
+        kwargs["memory"] = "70GB" if kwargs.get("memory", 0) == 0 else kwargs["memory"]
         super().__init__(*args, **kwargs)
         if model_params is None:
             model_params = {}

@@ -65,7 +65,7 @@ class SentenceAugmentationMapper(Mapper):
         :param args: extra args
         :param kwargs: extra args
         """
-        kwargs["mem_required"] = "31GB" if kwargs.get("mem_required", 0) == 0 else kwargs["mem_required"]
+        kwargs["memory"] = "31GB" if kwargs.get("memory", 0) == 0 else kwargs["memory"]
         kwargs["num_proc"] = 1 if kwargs.get("num_proc", None) is None else kwargs["num_proc"]
 
         super().__init__(*args, **kwargs)

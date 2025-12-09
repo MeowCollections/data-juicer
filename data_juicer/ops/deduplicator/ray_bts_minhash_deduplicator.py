@@ -674,7 +674,7 @@ class RayBTSMinhashDeduplicator(Deduplicator):
                 batch_format="pyarrow",
                 zero_copy_batch=True,
                 num_gpus=1,
-                concurrency=concurrency,
+                concurrency=ray.data.ActorPoolStrategy(size=concurrency),
                 batch_size=batch_size,
             )
             dataset.map_batches(

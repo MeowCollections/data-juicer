@@ -124,7 +124,7 @@ class VideoCaptioningFromFramesMapper(Mapper):
         :param args: extra args
         :param kwargs: extra args
         """
-        kwargs["mem_required"] = "20GB" if kwargs.get("mem_required", 0) == 0 else kwargs["mem_required"]
+        kwargs["memory"] = "20GB" if kwargs.get("memory", 0) == 0 else kwargs["memory"]
         super().__init__(*args, **kwargs)
 
         if keep_candidate_mode not in [

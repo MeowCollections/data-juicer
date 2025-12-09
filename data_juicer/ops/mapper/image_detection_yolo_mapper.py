@@ -41,7 +41,7 @@ class ImageDetectionYoloMapper(Mapper):
         :param model_path: the path to the YOLO model.
 
         """
-        kwargs.setdefault("mem_required", "800MB")
+        kwargs.setdefault("memory", "800MB")
         super().__init__(*args, **kwargs)
 
         self.imgsz = imgsz
