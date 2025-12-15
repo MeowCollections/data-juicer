@@ -81,6 +81,9 @@ class MetaKeys(object):
     # # 2D whole-body pose estimation
     pose_estimation_tags = "pose_estimation_tags"
 
+    # # pose information
+    pose_info = "pose_info"
+
     # === info extraction related tags ===
     # # for event extraction
     event_description = "event_description"
