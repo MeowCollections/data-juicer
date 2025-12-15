@@ -59,6 +59,7 @@ class VideoSplitBySceneMapper(Mapper):
         min_scene_len: NonNegativeInt = 15,
         show_progress: bool = False,
         save_dir: str = None,
+        ffmpeg_extra_args: str = "",
         *args,
         **kwargs,
     ):
@@ -73,6 +74,7 @@ class VideoSplitBySceneMapper(Mapper):
         :param save_dir: The directory where generated video files will be stored.
             If not specified, outputs will be saved in the same directory as their corresponding input files.
             This path can alternatively be defined by setting the `DJ_PRODUCED_DATA_DIR` environment variable.
+        :param ffmpeg_extra_args: Extra ffmpeg args for splitting video.
         :param args: extra args
         :param kwargs: extra args
         """
@@ -91,6 +93,7 @@ class VideoSplitBySceneMapper(Mapper):
         self.min_scene_len = min_scene_len
         self.show_progress = show_progress
         self.save_dir = save_dir
+        self.ffmpeg_extra_args = ffmpeg_extra_args
 
         # prepare detector args
         available_kwargs = self.available_detectors[self.detector]
@@ -133,6 +136,7 @@ class VideoSplitBySceneMapper(Mapper):
                     scene_list=scene_list,
                     output_file_template=output_template,
                     show_progress=self.show_progress,
+                    arg_override=self.ffmpeg_extra_args,
                 )
             else:
                 output_video_keys[video_key] = [video_key]

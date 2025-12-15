@@ -542,7 +542,7 @@ class FFmpegReader(VideoReader):
         frame_indices, pts_time = zip(*metadata)
         return Frames(frames=key_frames, indices=list(frame_indices), pts_time=list(pts_time))
 
-    def extract_clip(self, start_time, end_time, output_path: str = None, to_numpy=True):
+    def extract_clip(self, start_time, end_time, output_path: str = None, to_numpy=True, **kwargs):
         """
         Extract a clip from the video based on the start and end time.
         :param output_path: the path to output video.
@@ -557,6 +557,11 @@ class FFmpegReader(VideoReader):
             If to_numpy is False, it will return clip data as bytes and save to Clip.encoded_data.
         """
         self.check_time_span(start_time, end_time)
+
+        # allows adding extra arguments passed to ffmpeg
+        import shlex
+
+        ffmpeg_extra_args = shlex.split(kwargs.get("ffmpeg_extra_args", ""))
 
         # Build ffmpeg command
         cmd = [
@@ -583,6 +588,7 @@ class FFmpegReader(VideoReader):
                 # "-movflags", "frag_keyframe+empty_moov",  # opening when mounting oss storage may avoid unexpected errors.
             ]
         )
+        cmd.extend(ffmpeg_extra_args)
 
         encoded_data = None
         frames = None

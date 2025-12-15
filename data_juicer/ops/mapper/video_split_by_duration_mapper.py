@@ -50,6 +50,7 @@ class VideoSplitByDurationMapper(Mapper):
         keep_original_sample: bool = True,
         save_dir: str = None,
         video_backend: str = "ffmpeg",
+        ffmpeg_extra_args: str = "",
         *args,
         **kwargs,
     ):
@@ -68,6 +69,7 @@ class VideoSplitByDurationMapper(Mapper):
             If not specified, outputs will be saved in the same directory as their corresponding input files.
             This path can alternatively be defined by setting the `DJ_PRODUCED_DATA_DIR` environment variable.
         :param video_backend: video backend, can be `ffmpeg`, `av`.
+        :param ffmpeg_extra_args: Extra ffmpeg args for splitting video, only valid when `video_backend` is `ffmpeg`.
         :param args: extra args
         :param kwargs: extra args
         """
@@ -82,6 +84,7 @@ class VideoSplitByDurationMapper(Mapper):
         self.save_dir = save_dir
         self.video_backend = video_backend
         assert self.video_backend in ["ffmpeg", "av"]
+        self.ffmpeg_extra_args = ffmpeg_extra_args
 
     def split_videos_by_duration(self, video_key, container):
         video_duration = container.metadata.duration
@@ -89,16 +92,20 @@ class VideoSplitByDurationMapper(Mapper):
         count = 0
         split_video_keys = []
         unique_video_key = transfer_filename(video_key, OP_NAME, self.save_dir, **self._init_parameters)
+        if self.video_backend == "ffmpeg" and self.ffmpeg_extra_args:
+            kwargs = {"ffmpeg_extra_args": self.ffmpeg_extra_args}
+        else:
+            kwargs = {}
         for i in range(1, len(timestamps)):
             split_video_key = add_suffix_to_filename(unique_video_key, f"_{count}")
-            if container.extract_clip(timestamps[i - 1], timestamps[i], split_video_key):
+            if container.extract_clip(timestamps[i - 1], timestamps[i], split_video_key, **kwargs):
                 split_video_keys.append(split_video_key)
                 count += 1
 
         if video_duration - timestamps[-1] >= self.min_last_split_duration:
             split_video_key = add_suffix_to_filename(unique_video_key, f"_{count}")
 
-            if container.extract_clip(timestamps[-1], None, split_video_key):
+            if container.extract_clip(timestamps[-1], None, split_video_key, **kwargs):
                 split_video_keys.append(split_video_key)
         return split_video_keys
 
