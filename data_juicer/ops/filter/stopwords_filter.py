@@ -31,6 +31,8 @@ class StopWordsFilter(Filter):
     which is character-based by default. The operator also supports word augmentation for
     specific languages."""
 
+    _batched_op = True
+
     def __init__(
         self,
         lang: str = "en",

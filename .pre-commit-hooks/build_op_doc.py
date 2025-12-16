@@ -69,6 +69,7 @@ OP_TYPE_DESC = {
     "grouper": "Group samples to batched samples. 将样本分组，每一组组成一个批量样本。",
     "aggregator": "Aggregate for batched samples, such as summary or conclusion. "
     "对批量样本进行汇总，如得出总结或结论。",
+    "pipeline": "Applies dataset-level processing; both input and output are datasets. 执行数据集级别的操作，输入和输出均为完整数据集。",
 }
 # <<<
 

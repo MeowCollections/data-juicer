@@ -36,18 +36,19 @@ use agent to automatically route suitable OPs and call them. E.g., refer to
 
 ## Overview  概览
 
-The operators in Data-Juicer are categorized into 7 types.
-Data-Juicer 中的算子分为以下 7 种类型。
+The operators in Data-Juicer are categorized into 8 types.
+Data-Juicer 中的算子分为以下 8 种类型。
 
 | Type 类型 | Number 数量 | Description 描述 |
-|------|:------:|-------------|
-| [aggregator](#aggregator) | 4 | Aggregate for batched samples, such as summary or conclusion. 对批量样本进行汇总，如得出总结或结论。 |
-| [deduplicator](#deduplicator) | 10 | Detects and removes duplicate samples. 识别、删除重复样本。 |
-| [filter](#filter) | 54 | Filters out low-quality samples. 过滤低质量样本。 |
-| [formatter](#formatter) | 8 | Discovers, loads, and canonicalizes source data. 发现、加载、规范化原始数据。 |
-| [grouper](#grouper) | 3 | Group samples to batched samples. 将样本分组，每一组组成一个批量样本。 |
-| [mapper](#mapper) | 96 | Edits and transforms samples. 对数据样本进行编辑和转换。 |
-| [selector](#selector) | 5 | Selects top samples based on ranking. 基于排序选取高质量样本。 |
+|------|:---------:|-------------|
+| [aggregator](#aggregator) |     4     | Aggregate for batched samples, such as summary or conclusion. 对批量样本进行汇总，如得出总结或结论。 |
+| [deduplicator](#deduplicator) |    10     | Detects and removes duplicate samples. 识别、删除重复样本。 |
+| [filter](#filter) |    54     | Filters out low-quality samples. 过滤低质量样本。 |
+| [formatter](#formatter) |     8     | Discovers, loads, and canonicalizes source data. 发现、加载、规范化原始数据。 |
+| [grouper](#grouper) |     3     | Group samples to batched samples. 将样本分组，每一组组成一个批量样本。 |
+| [mapper](#mapper) |    96     | Edits and transforms samples. 对数据样本进行编辑和转换。 |
+| [pipeline](#pipeline) | 3 | Combines multiple operators into a data processing pipeline. 将多个算子组合成数据处理流水线。 |
+| [selector](#selector) |     5     | Selects top samples based on ranking. 基于排序选取高质量样本。 |
 
 All the specific operators are listed below, each featured with several capability tags. 
 下面列出所有具体算子，每种算子都通过多个标签来注明其主要功能。
@@ -273,6 +274,14 @@ All the specific operators are listed below, each featured with several capabili
 | video_tagging_from_frames_mapper | 🎬Video 🚀GPU 🟢Stable | Generates video tags from frames extracted from videos. 从视频中提取的帧生成视频标签。 | [info](operators/mapper/video_tagging_from_frames_mapper.md) | - |
 | video_whole_body_pose_estimation_mapper | 🎬Video 🚀GPU 🟡Beta | Input a video containing people, and use the DWPose model to extract the body, hand, feet, and face keypoints of the human subjects in the video, i.e., 2D Whole-body Pose Estimation. 输入包含人的视频，并使用DWPose模型来提取视频中人类主体的身体、手、脚和面部关键点，即2D全身姿态估计。 | - | - |
 | whitespace_normalization_mapper | 🔤Text 💻CPU 🟢Stable | Normalizes various types of whitespace characters to standard spaces in text samples. 将文本样本中各种类型的空白字符规范化为标准空格。 | [info](operators/mapper/whitespace_normalization_mapper.md) | - |
+
+## pipeline <a name="pipeline"/>
+
+| Operator 算子 | Tags 标签 | Description 描述 | Details 详情 | Reference 参考 |
+|----------|------|-------------|-------------|-------------|
+| llm_inference_with_ray_vllm_pipeline | 🚀GPU 🟡Beta | Pipeline to generate response using vLLM engine on Ray. 使用Ray上的vLLM引擎生成响应的管道。 | - | - |
+| ray_vllm_pipeline | 🚀GPU 🟡Beta | Pipeline for Ray vLLM engine. Ray vLLM引擎的管道。 | - | - |
+| vlm_inference_with_ray_vllm_pipeline | 🏞Image 🚀GPU 🟡Beta | Pipeline to generate response using vLLM engine on Ray. 使用Ray上的vLLM引擎生成响应的管道。 | - | - |
 
 ## selector <a name="selector"/>
 

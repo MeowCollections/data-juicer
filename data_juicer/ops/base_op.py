@@ -802,3 +802,33 @@ class Aggregator(OP):
             tracer.trace_mapper(self._name, dataset, new_dataset, self.text_key)
         free_models()
         return new_dataset
+
+
+class Pipeline(OP):
+    """Base class for Operators that represent a data processing pipeline."""
+
+    def __init__(self, *args, **kwargs):
+        """
+        Base class of operators.
+
+        :param text_key: the key name of field that stores sample texts
+            to be processed.
+        :param image_key: the key name of field that stores sample image list
+            to be processed
+        :param audio_key: the key name of field that stores sample audio list
+            to be processed
+        :param video_key: the key name of field that stores sample video list
+            to be processed
+        :param image_bytes_key: the key name of field that stores sample image bytes list
+            to be processed
+        :param query_key: the key name of field that stores sample queries
+        :param response_key: the key name of field that stores responses
+        :param history_key: the key name of field that stores history of
+            queries and responses
+        :param index_key: index the samples before process if not None
+        :param batch_size: the batch size for processing
+        """
+        super(Pipeline, self).__init__(*args, **kwargs)
+
+    def run(self, dataset):
+        raise NotImplementedError

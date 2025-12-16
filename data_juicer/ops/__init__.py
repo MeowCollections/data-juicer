@@ -14,7 +14,7 @@ def timing_context(description):
 
 # yapf: disable
 with timing_context('Importing operator modules'):
-    from . import aggregator, deduplicator, filter, grouper, mapper, selector
+    from . import aggregator, deduplicator, filter, grouper, mapper, pipeline, selector
     from .base_op import (
         ATTRIBUTION_FILTERS,
         NON_STATS_FILTERS,
@@ -26,6 +26,7 @@ with timing_context('Importing operator modules'):
         Filter,
         Grouper,
         Mapper,
+        Pipeline,
         Selector,
     )
     from .load import load_ops
@@ -42,4 +43,5 @@ __all__ = [
     'NON_STATS_FILTERS',
     'OPERATORS',
     'TAGGING_OPS',
+    'Pipeline'
 ]

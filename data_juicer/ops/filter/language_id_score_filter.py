@@ -19,6 +19,8 @@ class LanguageIDScoreFilter(Filter):
     confidence score are stored in the 'lang' and 'lang_score' fields of the sample's stats,
     respectively."""
 
+    _batched_op = True
+
     def __init__(self, lang: Union[str, List[str]] = "", min_score: float = 0.8, *args, **kwargs):
         """
         Initialization method.

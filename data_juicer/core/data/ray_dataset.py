@@ -12,7 +12,7 @@ from ray.data._internal.util import get_compute_strategy
 
 from data_juicer.core.data import DJDataset
 from data_juicer.core.data.schema import Schema
-from data_juicer.ops import Deduplicator, Filter, Mapper
+from data_juicer.ops import Deduplicator, Filter, Mapper, Pipeline
 from data_juicer.ops.base_op import DEFAULT_BATCH_SIZE, TAGGING_OPS
 from data_juicer.utils.constant import Fields
 from data_juicer.utils.file_utils import is_remote_path
@@ -253,10 +253,10 @@ class RayDataset(DJDataset):
                         op.process,
                         runtime_env=op.runtime_env,
                     )
-            elif isinstance(op, Deduplicator):
+            elif isinstance(op, (Deduplicator, Pipeline)):
                 self.data = op.run(self.data)
             else:
-                logger.error("Ray executor only support Filter, Mapper and Deduplicator OPs for now")
+                logger.error("Ray executor only support Filter, Mapper Deduplicator and Pipeline OPs for now")
                 raise NotImplementedError
         except:  # noqa: E722
             logger.error(f"An error occurred during Op [{op._name}].")
