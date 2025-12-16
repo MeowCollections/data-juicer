@@ -10,7 +10,7 @@
 - Basics
   - [Overview of DJ](../../README.md)
   - [Quick Start](QuickStart.md)
-  - [Configuration](../hub/RecipeGallery.md)
+  - [Configuration](https://datajuicer.github.io/data-juicer-hub/en/main/docs/RecipeGallery.html)
   - [Data Format Conversion](../../tools/fmt_conversion/README.md)
 - Lookup Materials
   - [DJ OperatorZoo](../Operators.md)
@@ -19,7 +19,7 @@
   - [Developer Guide](../DeveloperGuide.md)
   - [Preprocess Tools](../../tools/preprocess/README.md)
   - [Postprocess Tools](../../tools/postprocess/README.md)
-  - [Sandbox](../Sandbox.md)
+  - [Sandbox](https://datajuicer.github.io/data-juicer-sandbox/en/main/index.html)
   - [API Service](../DJ_service.md)
   - [Data Scoring](../../data_juicer/tools/quality_classifier/README.md)
   - [Auto Evaluation](../../tools/evaluator/README.md)
@@ -27,7 +27,7 @@
 
 
 ## Use Cases & Data Recipes
-- [Data Recipe Gallery](../hub/RecipeGallery.md)
+- [Data Recipe Gallery](https://datajuicer.github.io/data-juicer-hub/en/main/docs/RecipeGallery.html)
   - Data-Juicer Minimal Example Recipe
   - Reproducing Open Source Text Datasets
   - Improving Open Source Pre-training Text Datasets

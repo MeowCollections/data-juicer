@@ -146,7 +146,7 @@ The data sandbox laboratory (DJ-Sandbox) provides users with the best practices 
 - In the sandbox, users can quickly experiment, iterate, and refine data recipes based on small-scale datasets and models, before scaling up to produce high-quality data to serve large-scale models.
 - In addition to the basic data optimization and recipe refinement features offered by Data-Juicer, users can seamlessly use configurable components such as data probe and analysis, model training and evaluation, and data and model feedback-based recipe refinement to form a complete one-stop data-model research and development pipeline.
 
-For more information and details, please refer to the [sandbox documentation](../Sandbox.md).
+For more information and details, please refer to the [sandbox documentation](https://datajuicer.github.io/data-juicer-sandbox/en/main/index.html).
 
 ## Preprocess Raw Data (Optional)
 - Our Formatters support some common input dataset formats for now:

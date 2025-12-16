@@ -65,7 +65,7 @@ https://github.com/user-attachments/assets/a45f0eee-0f0e-4ffe-9a42-d9a55370089d
 - [2024-08-25] We give a [tutorial](https://datajuicer.github.io/data-juicer/_static/tutorial_kdd24.html) about data processing for multimodal LLMs in KDD'2024.
 - [2024-08-09] We propose Img-Diff, which enhances the performance of multimodal large language models through *contrastive data synthesis*, achieving a score that is 12 points higher than GPT-4V on the [MMVP benchmark](https://tsb0601.github.io/mmvp_blog/). See more details in our [paper](https://arxiv.org/abs/2408.04594), and download the dataset from [huggingface](https://huggingface.co/datasets/datajuicer/Img-Diff) and [modelscope](https://modelscope.cn/datasets/Data-Juicer/Img-Diff).
 - [2024-07-24] "Tianchi Better Synth Data Synthesis Competition for Multimodal Large Models" — Our 4th data-centric LLM competition has kicked off! Please visit the competition's [official website](https://tianchi.aliyun.com/competition/entrance/532251) for more information.
-- [2024-07-17] We utilized the Data-Juicer [Sandbox Laboratory Suite](https://github.com/datajuicer/data-juicer/blob/main/docs/Sandbox.md) to systematically optimize data and models through a co-development workflow between data and models, achieving a new top spot on the [VBench](https://huggingface.co/spaces/Vchitect/VBench_Leaderboard) text-to-video leaderboard. The related achievements have been compiled and published in a [paper](http://arxiv.org/abs/2407.11784), and the model has been released on the [ModelScope](https://modelscope.cn/models/Data-Juicer/Data-Juicer-T2V) and [HuggingFace](https://huggingface.co/datajuicer/Data-Juicer-T2V) platforms.
+- [2024-07-17] We utilized the Data-Juicer [Sandbox Laboratory Suite](https://datajuicer.github.io/data-juicer-sandbox/en/main/index.html) to systematically optimize data and models through a co-development workflow between data and models, achieving a new top spot on the [VBench](https://huggingface.co/spaces/Vchitect/VBench_Leaderboard) text-to-video leaderboard. The related achievements have been compiled and published in a [paper](http://arxiv.org/abs/2407.11784), and the model has been released on the [ModelScope](https://modelscope.cn/models/Data-Juicer/Data-Juicer-T2V) and [HuggingFace](https://huggingface.co/datajuicer/Data-Juicer-T2V) platforms.
 - [2024-07-12] Our *awesome list of MLLM-Data* has evolved into a systemic [survey](https://arxiv.org/abs/2407.08583) from model-data co-development perspective. Welcome to [explore](docs/awesome_llm_data.md) and contribute!
 - [2024-06-01] ModelScope-Sora "Data Directors" creative sprint—Our third data-centric LLM competition has kicked off! Please visit the competition's [official website](https://tianchi.aliyun.com/competition/entrance/532219) for more information.
 - [2024-03-07] We release **Data-Juicer [v0.2.0](https://github.com/datajuicer/data-juicer/releases/tag/v0.2.0)** now! 
@@ -101,46 +101,12 @@ Besides, our paper is also updated to [v3](https://arxiv.org/abs/2309.02033).
 
 
 - **Effect-Proven & Sandbox**: Supporting data-model co-development, enabling rapid iteration
-  through the [sandbox laboratory](docs/Sandbox.md), and providing features such as feedback loops and visualization, so that you can better understand and improve your data and models. Many effect-proven datasets and models have been derived from DJ, in scenarios such as pre-training, text-to-video and image-to-text generation.
+  through the [sandbox laboratory](https://datajuicer.github.io/data-juicer-sandbox/en/main/index.html), and providing features such as feedback loops and visualization, so that you can better understand and improve your data and models. Many effect-proven datasets and models have been derived from DJ, in scenarios such as pre-training, text-to-video and image-to-text generation.
   ![Data-in-the-loop](https://img.alicdn.com/imgextra/i2/O1CN017U7Zz31Y7XtCJ5GOz_!!6000000003012-0-tps-3640-1567.jpg) 
 
 ## Documentation
 
-- Tutorial
-  - [DJ-Cookbook](docs/tutorial/DJ-Cookbook.md)
-  - [Installation](docs/tutorial/Installation.md)
-  - [Quick Start](docs/tutorial/QuickStart.md)
-- Useful documents
-  - [Operator Schemas](docs/Operators.md)
-  - [Data Recipe Gallery](docs/hub/RecipeGallery.md)
-  - [Dataset Configuration Guide](docs/DatasetCfg.md)
-  - [Awesome Data-Model Co-Development of MLLMs](docs/awesome_llm_data.md)
-  - ["Bad" Data Exhibition](docs/BadDataExhibition.md)
-  - [DJ-SORA](docs/DJ_SORA.md)
-  - [DJ_service](docs/DJ_service.md)
-  - [How-to Guide for Developers](docs/DeveloperGuide.md)
-  - [Distributed Data Processing in Data-Juicer](docs/Distributed.md)
-  - [Sandbox](docs/Sandbox.md)
-  - [Data-Juicer Agents](docs/DJ_agents.md)
-- Demos
-  - [demos](demos/README.md)
-- Tools
-  - [Distributed Fuzzy Deduplication Tools](tools/distributed_deduplication/README.md)
-  - [Auto Evaluation Toolkit](tools/evaluator/README.md)
-    - [GPT EVAL: Evaluate your model with OpenAI API](tools/evaluator/gpt_eval/README.md)
-    - [Evaluation Results Recorder](tools/evaluator/recorder/README.md)
-  - [Format Conversion Tools](tools/fmt_conversion/README.md)
-    - [Multimodal Tools](tools/fmt_conversion/multimodal/README.md)
-    - [Post Tuning Tools](tools/fmt_conversion/post_tuning_dialog/README.md)
-  - [Hyper-parameter Optimization for Data Recipe](data_juicer/tools/hpo/README.md)
-  - [Label Studio Service Utility](tools/humanops/README.md)
-  - [Metrics for video generation](tools/mm_eval/inception_metrics/README.md)
-  - [Postprocess Tools](tools/postprocess/README.md)
-  - [Preprocess Tools](tools/preprocess/README.md)
-  - [Data Scoring](data_juicer/tools/quality_classifier/README.md)
-- Third-party
-  - [LLM Ecosystems](thirdparty/LLM_ecosystems/README.md)
-  - [Third-party Model Library](thirdparty/models/README.md)
+For detailed documentation, please see [here](https://datajuicer.github.io/data-juicer/en/main/docs_index.html).
 
 ## License
 Data-Juicer is released under Apache License 2.0.

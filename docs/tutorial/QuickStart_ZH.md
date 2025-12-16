@@ -140,7 +140,7 @@ python xxx.py --config demos/process_simple/process.yaml --language_id_score_fil
 - 用户在沙盒中可以基于一些小规模数据集、模型对数据菜谱进行快速实验、迭代、优化，再迁移到更大尺度上，大规模生产高质量数据以服务大模型。
 - 用户在沙盒中，除了Data-Juicer基础的数据优化与数据菜谱微调功能外，还可以便捷地使用数据洞察与分析、沙盒模型训练与评测、基于数据和模型反馈优化数据菜谱等可配置组件，共同组成完整的一站式数据-模型研发流水线。
 
-更多介绍和细节请参阅[沙盒文档](../Sandbox_ZH.md).
+更多介绍和细节请参阅[沙盒文档](https://datajuicer.github.io/data-juicer-sandbox/zh_CN/main/index_ZH.html).
 
 
 
