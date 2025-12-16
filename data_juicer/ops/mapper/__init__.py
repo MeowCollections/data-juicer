@@ -39,6 +39,7 @@ from .image_diffusion_mapper import ImageDiffusionMapper
 from .image_face_blur_mapper import ImageFaceBlurMapper
 from .image_mmpose_mapper import ImageMMPoseMapper
 from .image_remove_background_mapper import ImageRemoveBackgroundMapper
+from .image_sam_3d_body_mapper import ImageSAM3DBodyMapper
 from .image_segment_mapper import ImageSegmentMapper
 from .image_tagging_mapper import ImageTaggingMapper
 from .image_tagging_vlm_mapper import ImageTaggingVLMMapper
@@ -143,6 +144,7 @@ __all__ = [
     "ImageMMPoseMapper",
     "ImageFaceBlurMapper",
     "ImageRemoveBackgroundMapper",
+    "ImageSAM3DBodyMapper",
     "ImageSegmentMapper",
     "ImageTaggingMapper",
     "ImageTaggingVLMMapper",

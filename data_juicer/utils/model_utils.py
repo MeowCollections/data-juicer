@@ -1,4 +1,5 @@
 import fnmatch
+import importlib
 import inspect
 import io
 import os
@@ -23,6 +24,7 @@ from data_juicer.utils.nltk_utils import (
 from data_juicer.utils.ray_utils import is_ray_mode
 from data_juicer.utils.resource_utils import cuda_device_count
 
+from .cache_utils import DATA_JUICER_ASSETS_CACHE
 from .cache_utils import DATA_JUICER_EXTERNAL_MODELS_HOME as DJEMH
 from .cache_utils import DATA_JUICER_MODELS_CACHE as DJMC
 
@@ -916,8 +918,6 @@ def prepare_video_blip_model(pretrained_model_name_or_path, *, return_model=True
 
 
 def prepare_video_depth_anything(model_path, **model_params):
-    from data_juicer.utils.cache_utils import DATA_JUICER_ASSETS_CACHE
-
     video_depth_anything_repo_path = os.path.join(DATA_JUICER_ASSETS_CACHE, "Video-Depth-Anything")
     if not os.path.exists(video_depth_anything_repo_path):
         subprocess.run(
@@ -929,7 +929,6 @@ def prepare_video_depth_anything(model_path, **model_params):
             ],
             check=True,
         )
-    import sys
 
     sys.path.append(video_depth_anything_repo_path)
 
@@ -999,9 +998,6 @@ def prepare_yolo_model(model_path, **model_params):
 
 def prepare_vggt_model(model_path, **model_params):
     device = model_params.pop("device", "cpu")
-
-    from data_juicer.utils.cache_utils import DATA_JUICER_ASSETS_CACHE
-
     vggt_repo_path = os.path.join(DATA_JUICER_ASSETS_CACHE, "vggt")
     if not os.path.exists(vggt_repo_path):
         subprocess.run(["git", "clone", "https://github.com/facebookresearch/vggt.git", vggt_repo_path], check=True)
@@ -1053,14 +1049,9 @@ def prepare_wilor_model(wilor_model_path, wilor_model_config, detector_model_pat
         raise ValueError(
             "Users need to download 'MANO_RIGHT.pkl' from https://mano.is.tue.mpg.de/ and comply with the MANO license."
         )
-
-    from data_juicer.utils.cache_utils import DATA_JUICER_ASSETS_CACHE
-
     wilor_repo_path = os.path.join(DATA_JUICER_ASSETS_CACHE, "WiLoR")
     if not os.path.exists(wilor_repo_path):
         subprocess.run(["git", "clone", "https://github.com/rolpotamias/WiLoR.git", wilor_repo_path], check=True)
-
-    import sys
 
     sys.path.append(wilor_repo_path)
     from wilor.configs import get_config
@@ -1351,6 +1342,127 @@ def prepare_qwen_vl_inputs_for_vllm(messages, processor):
     return {"prompt": text, "multi_modal_data": mm_data, "mm_processor_kwargs": video_kwargs}
 
 
+def prepare_sam_3d_body_model(
+    checkpoint_path: str = "",
+    detector_name: str = "vitdet",
+    segmentor_name: str = "sam2",
+    fov_name: str = "moge2",
+    mhr_path: str = "",
+    detector_path: str = "",
+    segmentor_path: str = "",
+    fov_path: str = "",
+    **model_params,
+):
+    """
+    Prepare the SAM-3D-Body model.
+    :param checkpoint_path: Path to SAM 3D Body model checkpoint.
+    :param mhr_path: Path to MoHR/assets folder (or set SAM3D_mhr_path).
+    :param detector_path: Path to human detection model folder (or set SAM3D_DETECTOR_PATH).
+    :param segmentor_path: Path to human segmentation model folder (or set SAM3D_SEGMENTOR_PATH).
+    :param fov_path: Path to fov estimation model folder (or set SAM3D_FOV_PATH).
+    :param detector_name: Human detection model for demo (Default `vitdet`, add your favorite detector if needed).
+    :param segmentor_name: Human segmentation model for demo (Default `sam2`, add your favorite segmentor if needed).
+    :param fov_name: FOV estimation model for demo (Default `moge2`, add your favorite fov estimator if needed).
+    :param model_params: Additional parameters for the model.
+    """
+    sam_3d_body_repo_path = os.path.join(DATA_JUICER_ASSETS_CACHE, "sam-3d-body")
+    if not os.path.exists(sam_3d_body_repo_path):
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "https://github.com/facebookresearch/sam-3d-body.git",
+                sam_3d_body_repo_path,
+            ],
+            check=True,
+        )
+
+    def _download_model(local_dir):
+        import importlib
+
+        os.makedirs(local_dir, exist_ok=True)
+        try:
+            importlib.import_module("modelscope")
+        except ImportError:
+            logger.info("Installing modelscope...")
+            subprocess.run([sys.executable, "-m", "pip", "install", "modelscope"], check=True)
+        logger.info("Downloading model 'facebook/sam-3d-body-dinov3'...")
+        subprocess.run(
+            [
+                "modelscope",
+                "download",
+                "--model",
+                "facebook/sam-3d-body-dinov3",
+                "--local_dir",
+                local_dir,
+            ],
+            check=True,
+        )
+
+    if not checkpoint_path or not mhr_path:
+        local_dir = os.path.join(DJMC, "sam-3d-body-dinov3")
+
+        if not os.path.exists(local_dir):
+            _download_model(local_dir)
+
+        if not checkpoint_path:
+            checkpoint_path = os.path.join(local_dir, "model.ckpt")
+        if not mhr_path:
+            mhr_path = os.path.join(local_dir, "assets/mhr_model.pt")
+
+    try:
+        sys.path.insert(0, sam_3d_body_repo_path)
+        from sam_3d_body import SAM3DBodyEstimator, load_sam_3d_body
+
+        device = model_params.pop("device", "cpu")
+
+        try:
+            # Initialize sam-3d-body model and other optional modules
+            model, model_cfg = load_sam_3d_body(checkpoint_path, device=device, mhr_path=mhr_path)
+        except Exception:  # double check, local_dir exists but files broken or missing
+            _download_model(local_dir)
+            model, model_cfg = load_sam_3d_body(checkpoint_path, device=device, mhr_path=mhr_path)
+
+        human_detector, human_segmentor, fov_estimator = None, None, None
+        if detector_name:
+            module_path = f"{sam_3d_body_repo_path}/tools/build_detector.py"
+            spec = importlib.util.spec_from_file_location("build_detector", module_path)
+            if spec is None:
+                raise ImportError(f"Could not load spec from {module_path}")
+            build_detector = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(build_detector)
+            human_detector = build_detector.HumanDetector(name=detector_name, device=device, path=detector_path)
+        if segmentor_path:
+            module_path = f"{sam_3d_body_repo_path}/tools/build_sam.py"
+            spec = importlib.util.spec_from_file_location("build_sam", module_path)
+            if spec is None:
+                raise ImportError(f"Could not load spec from {module_path}")
+            build_sam = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(build_sam)
+            human_segmentor = build_sam.HumanSegmentor(name=segmentor_name, device=device, path=segmentor_path)
+        if fov_name:
+            module_path = f"{sam_3d_body_repo_path}/tools/build_fov_estimator.py"
+            spec = importlib.util.spec_from_file_location("build_fov_estimator", module_path)
+            if spec is None:
+                raise ImportError(f"Could not load spec from {module_path}")
+            build_fov_estimator = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(build_fov_estimator)
+            fov_estimator = build_fov_estimator.FOVEstimator(name=fov_name, device=device, path=fov_path)
+
+        estimator = SAM3DBodyEstimator(
+            sam_3d_body_model=model,
+            model_cfg=model_cfg,
+            human_detector=human_detector,
+            human_segmentor=human_segmentor,
+            fov_estimator=fov_estimator,
+        )
+    finally:
+        if sam_3d_body_repo_path in sys.path:
+            sys.path.remove(sam_3d_body_repo_path)
+
+    return estimator
+
+
 MODEL_FUNCTION_MAPPING = {
     "api": prepare_api_model,
     "diffusion": prepare_diffusion_model,
@@ -1374,6 +1486,7 @@ MODEL_FUNCTION_MAPPING = {
     "wilor": prepare_wilor_model,
     "yolo": prepare_yolo_model,
     "embedding": prepare_embedding_model,
+    "sam_3d_body": prepare_sam_3d_body_model,
     "mmlab": prepare_mmlab_model,
 }
 
