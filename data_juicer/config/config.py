@@ -453,6 +453,14 @@ def init_configs(args: Optional[List[str]] = None, which_entry: object = None, l
                 "open_tracer is true.",
             )
             parser.add_argument(
+                "--trace_keys",
+                type=List[str],
+                default=[],
+                help="List of field names to include in trace output. If set, the "
+                "specified fields' values will be included in each trace entry. "
+                "Only available when open_tracer is true.",
+            )
+            parser.add_argument(
                 "--open_insight_mining",
                 type=bool,
                 default=False,
