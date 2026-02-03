@@ -85,6 +85,12 @@ class MetaKeys(object):
 
     # # pose information
     pose_info = "pose_info"
+    # # Static Camera Calibration Info (for DeepCalib)
+    static_camera_calibration_deepcalib_tags = "static_camera_calibration_deepcalib_tags"
+    # # Static Camera Calibration Info (for Moge-2)
+    static_camera_calibration_moge_tags = "static_camera_calibration_moge_tags"
+    # # Video Undistortion Info
+    video_undistortion_tags = "video_undistortion_tags"
 
     # === info extraction related tags ===
     # # for event extraction

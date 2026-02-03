@@ -419,6 +419,60 @@ def prepare_api_model(
     return (client, processor)
 
 
+def prepare_deepcalib_model(model_path, **model_params):
+
+    device = model_params.pop("device", None)
+    if device is None:
+        raise ValueError("video_camera_calibration_static_deepcalib_mapper currently supports GPU usage only.")
+    device = device.replace("cuda", "/gpu")
+
+    if not os.path.exists(model_path):
+        LazyLoader.check_packages(["gdown"])
+        deepcalib_folder = os.path.join(DJMC, "deepcalib")
+        deepcalib_model_path = os.path.join(deepcalib_folder, "Regression", "Single_net", "weights_10_0.02.h5")
+        os.makedirs(deepcalib_folder, exist_ok=True)
+
+        if not os.path.exists(deepcalib_model_path):
+
+            deepcalib_zip_path = os.path.join(DJMC, "deepcalib_weights.zip")
+            subprocess.run(["gdown", "1TYZn-f2z7O0hp_IZnNfZ06ExgU9ii70T", "-O", deepcalib_zip_path], check=True)
+
+            import zipfile
+
+            zip_file = zipfile.ZipFile(deepcalib_zip_path)
+            for names in zip_file.namelist():
+                zip_file.extract(names, deepcalib_folder)
+            zip_file.close()
+
+        model_path = deepcalib_model_path
+
+    LazyLoader.check_packages(["tensorflow"])
+    import tensorflow as tf
+    from keras.applications.inception_v3 import InceptionV3
+    from keras.layers import Dense, Flatten, Input
+    from keras.models import Model
+
+    gpus = tf.config.list_physical_devices("GPU")
+    tf.config.set_visible_devices(gpus[int(device.split(":")[-1])], "GPU")
+    tf.config.experimental.set_memory_growth(gpus[int(device.split(":")[-1])], True)
+    with tf.device(device):
+        input_shape = (299, 299, 3)
+        main_input = Input(shape=input_shape, dtype="float32", name="main_input")
+        phi_model = InceptionV3(weights="imagenet", include_top=False, input_tensor=main_input, input_shape=input_shape)
+        phi_features = phi_model.output
+        phi_flattened = Flatten(name="phi-flattened")(phi_features)
+        final_output_focal = Dense(1, activation="sigmoid", name="output_focal")(phi_flattened)
+        final_output_distortion = Dense(1, activation="sigmoid", name="output_distortion")(phi_flattened)
+
+        for layer in phi_model.layers:
+            layer.name = layer.name + "_phi"
+
+        model = Model(inputs=main_input, outputs=[final_output_focal, final_output_distortion])
+        model.load_weights(model_path)
+
+    return model
+
+
 def prepare_diffusion_model(pretrained_model_name_or_path, diffusion_type, **model_params):
     """
     Prepare and load an Diffusion model from HuggingFace.
@@ -590,6 +644,18 @@ def prepare_kenlm_model(lang, name_pattern="{}.arpa.bin", **model_params):
     except:  # noqa: E722
         kenlm_model = kenlm.Model(check_model(model_name, force=True), **model_params)
     return kenlm_model
+
+
+def prepare_moge_model(model_path, **model_params):
+
+    device = model_params.pop("device", "cpu")
+
+    LazyLoader.check_packages(["moge@ git+https://github.com/microsoft/MoGe.git"])
+    from moge.model.v2 import MoGeModel
+
+    model = MoGeModel.from_pretrained(model_path).to(device)
+
+    return model
 
 
 def prepare_nltk_model(lang, name_pattern="punkt.{}.pickle", **model_params):
@@ -1517,12 +1583,14 @@ def prepare_sam_3d_body_model(
 
 MODEL_FUNCTION_MAPPING = {
     "api": prepare_api_model,
+    "deepcalib": prepare_deepcalib_model,
     "diffusion": prepare_diffusion_model,
     "dwpose": prepare_dwpose_model,
     "fasttext": prepare_fasttext_model,
     "fastsam": prepare_fastsam_model,
     "huggingface": prepare_huggingface_model,
     "kenlm": prepare_kenlm_model,
+    "moge": prepare_moge_model,
     "nltk": prepare_nltk_model,
     "nltk_pos_tagger": prepare_nltk_pos_tagger,
     "opencv_classifier": prepare_opencv_classifier,
