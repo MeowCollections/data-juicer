@@ -1,12 +1,14 @@
 # text_formatter
 
+
 The class is used to load and format text-type files.
 
 e.g. `['.txt', '.pdf', '.cpp', '.docx']`
 
+
 该类用于加载和格式化文本类型的文件。
 
-例如 `['.txt', '.pdf', '.cpp', '.docx']`
+例如：`['.txt', '.pdf', '.cpp', '.docx']`
 
 Type 算子类型: **formatter**
 
@@ -20,10 +22,8 @@ Tags 标签: cpu, text
 | `add_suffix` |  | `False` | Whether to add file suffix to dataset meta info |
 | `kwargs` |  | `''` | extra args |
 
-## 📊 Effect demonstration 效果演示
-not available 暂无
 
 ## 🔗 related links 相关链接
-- [source code 源代码](../../../data_juicer/ops/formatter/text_formatter.py)
+- [source code 源代码](../../../data_juicer/format/text_formatter.py)
 - [unit test 单元测试]()
 - [Return operator list 返回算子列表](../../Operators.md)
