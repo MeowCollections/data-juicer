@@ -95,7 +95,7 @@ class BTSUnionFind:
         for value in self.hash_table.values():
             if len(value) > 1:
                 self.union_list(value)
-        del self.hash_table
+        self.hash_table = {}
 
     def balanced_union_find(self):
         for x, y in self.edge_buffer:

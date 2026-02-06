@@ -171,9 +171,29 @@ class RayDataset(DJDataset):
         if self._auto_proc:
             calculate_ray_np(operators)
 
+        # Check if dataset is empty - Ray returns None for columns() on empty datasets
+        # with unknown schema. If empty, skip processing as there's nothing to process.
+        try:
+            row_count = self.data.count()
+        except Exception:
+            row_count = 0
+
+        if row_count == 0:
+            from loguru import logger
+
+            logger.warning("Dataset is empty (0 rows), skipping operator processing")
+            return self
+
         # Cache columns once at start to avoid breaking pipeline with repeated columns() calls
         # Ray's columns() internally does limit(1) which forces execution and breaks streaming
-        cached_columns = set(self.data.columns())
+        columns_result = self.data.columns()
+        # Handle empty dataset case where columns() returns None
+        if columns_result is None:
+            from loguru import logger
+
+            logger.warning("Dataset has unknown schema (likely empty), skipping operator processing")
+            return self
+        cached_columns = set(columns_result)
 
         for op in operators:
             cached_columns = self._run_single_op(op, cached_columns, tracer=tracer)
