@@ -13,6 +13,12 @@ from data_juicer.utils.ray_utils import is_ray_mode
 from data_juicer.utils.registry import Registry
 from data_juicer.utils.resource_utils import is_cuda_available
 
+from .op_env import (
+    OPEnvSpec,
+    analyze_lazy_loaded_requirements_for_code_file,
+    op_requirements_to_op_env_spec,
+)
+
 OPERATORS = Registry("Operators")
 UNFORKABLE = Registry("Unforkable")
 NON_STATS_FILTERS = Registry("Non-stats Filters")
@@ -281,8 +287,19 @@ class OPMetaClass(ABCMeta):
 
 
 class OP(metaclass=OPMetaClass):
+    # the name of this operator. Automatically set by the registry
+    _name = ""
+
+    # the accelerator to run this operator. Either "cpu" or "cuda"
     _accelerator = "cpu"
+
+    # whether this operator is a batched operator
     _batched_op = False
+
+    # extra requirements for this operator. Should be:
+    #   1. a list of packages
+    #   2. a string of the path to the requirements.txt file
+    _requirements = None
 
     def __init__(self, *args, **kwargs):
         """
@@ -418,6 +435,12 @@ class OP(metaclass=OPMetaClass):
                 setattr(self, f"_{name}", method)
                 method = wrap_func_with_nested_access(method)
                 setattr(self, name, method)
+
+    def get_env_spec(self) -> OPEnvSpec:
+        import inspect
+
+        auto_analyzed_requirements = analyze_lazy_loaded_requirements_for_code_file(inspect.getfile(self.__class__))
+        return op_requirements_to_op_env_spec(self._name, self._requirements, auto_analyzed_requirements)
 
     def use_auto_proc(self):
         if is_ray_mode() and not self.use_ray_actor():  # ray task

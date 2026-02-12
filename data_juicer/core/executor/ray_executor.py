@@ -13,7 +13,7 @@ from data_juicer.core.executor.dag_execution_mixin import DAGExecutionMixin
 from data_juicer.core.executor.event_logging_mixin import EventLoggingMixin
 from data_juicer.core.ray_exporter import RayExporter
 from data_juicer.core.tracer.ray_tracer import RayTracer
-from data_juicer.ops import load_ops
+from data_juicer.ops import OPEnvManager, load_ops
 from data_juicer.ops.op_fusion import fuse_operators
 from data_juicer.utils.lazy_loader import LazyLoader
 
@@ -122,6 +122,15 @@ class RayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
                 trace_keys=self.cfg.trace_keys,
             )
 
+        # setup OPEnvManager
+        self.op_env_manager = None
+        if self.cfg.min_common_dep_num_to_combine >= 0:
+            logger.info("Preparing OPEnvManager...")
+            self.op_env_manager = OPEnvManager(
+                min_common_dep_num_to_combine=self.cfg.min_common_dep_num_to_combine,
+                conflict_resolve_strategy=self.cfg.conflict_resolve_strategy,
+            )
+
     def run(self, load_data_np: Optional[PositiveInt] = None, skip_export: bool = False, skip_return: bool = False):
         """
         Running the dataset process pipeline
@@ -138,7 +147,7 @@ class RayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
 
         # 2. extract processes
         logger.info("Preparing process operators...")
-        ops = load_ops(self.cfg.process)
+        ops = load_ops(self.cfg.process, self.op_env_manager)
 
         # Initialize DAG execution planning (pass ops to avoid redundant loading)
         self._initialize_dag_execution(self.cfg, ops=ops)
