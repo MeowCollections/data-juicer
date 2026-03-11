@@ -199,6 +199,14 @@ process:
       model_params: {}                                        # Parameters for initializing the API model.
       sampling_params: {}                                     # Extra parameters passed to the API call. e.g {'temperature': 0.9, 'top_p': 0.95}
   - expand_macro_mapper:                                    # expand macro definitions in Latex text.
+  - latex_figure_context_extractor_mapper:                  # Extract figures and their citing context from LaTeX source.
+      citation_commands: ['\ref', '\cref', '\Cref', '\autoref']  # LaTeX reference commands to search for citing paragraphs.
+      paragraph_separator: '\n\n'                               # Pattern for splitting LaTeX text into paragraphs.
+      caption_key: 'caption'                                  # Output field name for the figure caption.
+      label_key: 'label'                                      # Output field name for the LaTeX label.
+      context_key: 'citing_paragraphs'                        # Output field name for citing paragraphs.
+      parent_caption_key: 'parent_caption'                    # Output field name for the parent figure's caption (subfigures only).
+      parent_label_key: 'parent_label'                        # Output field name for the parent figure's label (for grouping subfigures).
   - latex_merge_tex_mapper:                                 # Extract and concatenate all .tex files from a compressed LaTeX project archive.
       compressed_file_key: 'compressed_file'                   # Field storing the archive path.
       separator: '\n\n'                                       # Separator between concatenated .tex files.
