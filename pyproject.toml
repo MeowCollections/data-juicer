@@ -78,7 +78,6 @@ generic = [
 
 # Computer Vision
 vision = [
-    "opencv-python",  # OpenCV
     "opencv-contrib-python",
     "imagededup",  # Image deduplication
     "diffusers>=0.33.0",  # Diffusion models
@@ -232,4 +231,11 @@ addopts = "-v"
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+]
+
+[tool.uv]
+override-dependencies = [
+    "opencv-python; sys_platform == 'never'",
+    "opencv-python-headless; sys_platform == 'never'",
+    "opencv-contrib-python-headless; sys_platform == 'never'", # never install other versions of opencv-python
 ]
