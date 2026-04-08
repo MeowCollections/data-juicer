@@ -7,13 +7,15 @@ import os
 from typing import Dict
 from urllib.parse import parse_qs
 
-from fastapi import FastAPI, HTTPException, Request
 from jsonargparse import Namespace
 from pydantic import validate_call
 
 from data_juicer.config.config import get_default_cfg
 from data_juicer.core.data.dataset_builder import DatasetBuilder
 from data_juicer.core.exporter import Exporter
+from data_juicer.utils.lazy_loader import LazyLoader
+
+fastapi = LazyLoader("fastapi")
 
 DJ_OUTPUT = "outputs"
 
@@ -31,7 +33,7 @@ allowed_methods = {
 }
 
 logger = logging.getLogger("uvicorn.error")
-app = FastAPI()
+app = fastapi.FastAPI()
 
 
 def register_objects_from_init(directory: str):
@@ -57,7 +59,7 @@ def register_class(module, cls):
     """Register class and its methods as endpoints."""
 
     def create_class_call(cls, method_name: str):
-        async def class_call(request: Request):
+        async def class_call(request: "fastapi.Request"):
             try:
                 # wrap init method
                 cls.__init__ = validate_call(cls.__init__, config=dict(arbitrary_types_allowed=True))
@@ -75,7 +77,7 @@ def register_class(module, cls):
                 result = _invoke(method, request)
                 return {"status": "success", "result": result}
             except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+                raise fastapi.HTTPException(status_code=500, detail=str(e))
 
         return class_call
 
@@ -92,14 +94,14 @@ def register_function(module, func):
     """Register a function as an endpoint."""
 
     def create_func_call(func):
-        async def func_call(request: Request):
+        async def func_call(request: "fastapi.Request"):
             try:
                 nonlocal func
                 func = validate_call(func, config=dict(arbitrary_types_allowed=True))
                 result = _invoke(func, request)
                 return {"status": "success", "result": result}
             except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+                raise fastapi.HTTPException(status_code=500, detail=str(e))
 
         return func_call
 

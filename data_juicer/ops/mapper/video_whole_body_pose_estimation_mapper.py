@@ -1,6 +1,5 @@
 import os
 
-import matplotlib.pyplot as plt
 from pydantic import PositiveInt
 
 import data_juicer
@@ -136,6 +135,7 @@ class VideoWholeBodyPoseEstimationMapper(Mapper):
             bbox_results_list.append(bbox_results)
 
             if self.if_save_visualization:
+                plt = LazyLoader("matplotlib.pyplot")
                 plt.imsave(
                     os.path.join(frame_dir_for_temp_video, f"temp_frame_pose_{str(temp_frame_id)}.jpg"), draw_pose
                 )

@@ -4,11 +4,13 @@ import os
 import sys
 from typing import Annotated, Optional
 
-from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
 from data_juicer.tools.mcp_tool import execute_op
 from data_juicer.tools.op_search import OPSearcher
+from data_juicer.utils.lazy_loader import LazyLoader
+
+fastmcp = LazyLoader("mcp.server.fastmcp", "mcp[cli]")
 
 
 # Dynamic MCP Tool Creation
@@ -90,7 +92,7 @@ def create_mcp_server(port: str = "8000"):
     Args:
         port (str, optional): Port number. Defaults to "8000".
     """
-    mcp = FastMCP("Data-Juicer Server", port=port)
+    mcp = fastmcp.FastMCP("Data-Juicer Server", port=port)
 
     # Operator Management
     ops_list_path = os.getenv("DJ_OPS_LIST_PATH", None)

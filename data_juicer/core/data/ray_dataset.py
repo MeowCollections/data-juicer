@@ -371,6 +371,11 @@ class RayDataset(DJDataset):
             "binary_files",
             "lance",
         }:
+            if data_format == "lance":
+                # use lazy loader to check pylance installation
+                from data_juicer.utils.lazy_loader import LazyLoader
+
+                LazyLoader.check_packages(["pylance"])
             return getattr(ray.data, f"read_{data_format}")(paths)
 
     @classmethod

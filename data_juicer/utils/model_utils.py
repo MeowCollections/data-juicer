@@ -928,7 +928,7 @@ def prepare_spacy_model(lang, name_pattern="{}_core_web_md-3.7.0", **model_param
         "en"]
     :return: corresponding spacy model
     """
-    import spacy
+    spacy = LazyLoader("spacy")
 
     assert lang in ["zh", "en"], "Diversity only support zh and en"
     model_name = name_pattern.format(lang)

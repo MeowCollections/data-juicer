@@ -247,6 +247,11 @@ class RayExporter:
         :return:
         """
         export_format = kwargs.get("export_format", "parquet")
+        if export_format == "lance":
+            # use lazy loader to check pylance installation
+            from data_juicer.utils.lazy_loader import LazyLoader
+
+            LazyLoader.check_packages(["pylance"])
         write_method = getattr(dataset, f"write_{export_format}")
         export_extra_args = kwargs.get("export_extra_args", {})
         filtered_kwargs = filter_arguments(write_method, export_extra_args)

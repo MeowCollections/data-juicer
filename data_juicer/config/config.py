@@ -395,9 +395,9 @@ def build_base_parser() -> ArgumentParser:
     parser.add_argument(
         "--open_monitor",
         type=bool,
-        default=True,
+        default=False,
         help="Whether to open the monitor to trace resource utilization for "  # noqa: E251
-        "each OP during data processing. It's True in default.",
+        "each OP during data processing. It's False in default.",
     )
     parser.add_argument(
         "--use_checkpoint",

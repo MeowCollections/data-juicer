@@ -647,6 +647,10 @@ class RayS3DataLoadStrategy(RayDataLoadStrategy):
             elif data_format == "tfrecords":
                 dataset = ray.data.read_tfrecords(path, filesystem=s3_fs)
             elif data_format == "lance":
+                # use lazy loader to check pylance installation
+                from data_juicer.utils.lazy_loader import LazyLoader
+
+                LazyLoader.check_packages(["pylance"])
                 dataset = ray.data.read_lance(path, filesystem=s3_fs)
             else:
                 raise ValueError(f"Unsupported data format for S3: {data_format}")
