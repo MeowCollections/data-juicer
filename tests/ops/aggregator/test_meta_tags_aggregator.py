@@ -7,6 +7,25 @@ from data_juicer.ops.aggregator import MetaTagsAggregator
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, MetaKeys
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_from_fork
 
+
+class MetaTagsAggregatorUnitTest(DataJuicerTestCaseBase):
+    """Pure logic tests that do not require an external API."""
+
+    def test_keeps_invalid_samples_unchanged(self):
+        op = MetaTagsAggregator(
+            api_model="any-model",
+            meta_tag_key=MetaKeys.dialog_sentiment_labels,
+        )
+
+        no_meta = {"text": "row"}
+        self.assertIs(op.process_single(no_meta), no_meta)
+
+        not_batch = {Fields.meta: {MetaKeys.dialog_sentiment_labels: "happy"}}
+        self.assertIs(op.process_single(not_batch), not_batch)
+
+        invalid_tag = {Fields.meta: [{MetaKeys.dialog_sentiment_labels: 7}]}
+        self.assertIs(op.process_single(invalid_tag), invalid_tag)
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class MetaTagsAggregatorTest(DataJuicerTestCaseBase):
 

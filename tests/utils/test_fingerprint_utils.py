@@ -279,5 +279,147 @@ class UpdateFingerprintTest(DataJuicerTestCaseBase):
         self.assertIsInstance(fp, str)
 
 
+class HasherFindOpOwnerWrappedTest(DataJuicerTestCaseBase):
+    """Test _find_op_owner following __wrapped__ chain."""
+
+    def test_find_op_owner_with_wrapped(self):
+        """Create an object with __wrapped__ chain that has
+        _fingerprint_bytes method. Call _find_op_owner."""
+
+        class FakeOp:
+            def _fingerprint_bytes(self):
+                return b'fake_fingerprint'
+
+            def compute(self, x):
+                return x
+
+        op = FakeOp()
+        bound_method = op.compute
+
+        # Create a wrapper chain simulating decorators
+        import functools
+
+        @functools.wraps(bound_method)
+        def wrapper1(*args, **kwargs):
+            return bound_method(*args, **kwargs)
+
+        @functools.wraps(wrapper1)
+        def wrapper2(*args, **kwargs):
+            return wrapper1(*args, **kwargs)
+
+        # wrapper2.__wrapped__ -> wrapper1 -> bound_method (which has __self__)
+        wrapper2.__wrapped__ = wrapper1
+        wrapper1.__wrapped__ = bound_method
+
+        obj, func_name = Hasher._find_op_owner(wrapper2)
+        self.assertIs(obj, op)
+        self.assertEqual(func_name, 'compute')
+
+    def test_find_op_owner_no_wrapped_no_self(self):
+        """A plain function with no __self__ or __wrapped__ returns (None, None)."""
+        def plain_func(x):
+            return x
+
+        obj, func_name = Hasher._find_op_owner(plain_func)
+        self.assertIsNone(obj)
+        self.assertIsNone(func_name)
+
+    def test_find_op_owner_direct_bound_method(self):
+        """A direct bound method with _fingerprint_bytes on __self__."""
+
+        class MyOp:
+            def _fingerprint_bytes(self):
+                return b'my_op_fp'
+
+            def process(self, x):
+                return x
+
+        op = MyOp()
+        obj, func_name = Hasher._find_op_owner(op.process)
+        self.assertIs(obj, op)
+        self.assertEqual(func_name, 'process')
+
+
+class HasherDispatchTest(DataJuicerTestCaseBase):
+    """Test Hasher.dispatch registration for custom types."""
+
+    def setUp(self):
+        super().setUp()
+        # Save original dispatch
+        self._original_dispatch = Hasher.dispatch.copy()
+
+    def tearDown(self):
+        # Restore dispatch
+        Hasher.dispatch = self._original_dispatch
+        super().tearDown()
+
+    def test_hash_dispatch_custom_type(self):
+        """Register a custom type in Hasher.dispatch, verify hash() uses it."""
+
+        class MyCustomType:
+            def __init__(self, val):
+                self.val = val
+
+        def custom_hasher(cls, value):
+            return cls.hash_bytes(str(value.val).encode())
+
+        Hasher.dispatch[MyCustomType] = custom_hasher
+
+        obj1 = MyCustomType(42)
+        obj2 = MyCustomType(42)
+        obj3 = MyCustomType(99)
+
+        hash1 = Hasher.hash(obj1)
+        hash2 = Hasher.hash(obj2)
+        hash3 = Hasher.hash(obj3)
+
+        # Same value produces same hash
+        self.assertEqual(hash1, hash2)
+        # Different value produces different hash
+        self.assertNotEqual(hash1, hash3)
+
+
+class UpdateFingerprintRepeatedWarningTest(DataJuicerTestCaseBase):
+    """Test update_fingerprint second call goes through 'already warned' path."""
+
+    def test_repeated_unhashable_transform_second_call(self):
+        """Call update_fingerprint twice with same unhashable transform;
+        second call goes through 'already warned' path (logger.info)."""
+        from datasets.fingerprint import fingerprint_warnings
+
+        # Reset the warning state
+        fingerprint_warnings.pop(
+            "update_fingerprint_transform_hash_failed", None)
+
+        class Unpicklable:
+            def __reduce__(self):
+                raise TypeError("cannot pickle")
+
+        # First call: sets the warning flag
+        with patch(
+            "data_juicer.utils.fingerprint_utils._CACHING_ENABLED", True
+        ):
+            fp1 = update_fingerprint("base", Unpicklable(), {})
+
+        self.assertTrue(
+            fingerprint_warnings.get(
+                "update_fingerprint_transform_hash_failed", False))
+        self.assertIsInstance(fp1, str)
+
+        # Second call: "already warned" path - flag is already True
+        with patch(
+            "data_juicer.utils.fingerprint_utils._CACHING_ENABLED", True
+        ):
+            fp2 = update_fingerprint("base", Unpicklable(), {})
+
+        self.assertIsInstance(fp2, str)
+        # Both should be random fingerprints (different from each other)
+        self.assertNotEqual(fp1, fp2)
+
+        # Clean up
+        fingerprint_warnings.pop(
+            "update_fingerprint_transform_hash_failed", None)
+
+
 if __name__ == '__main__':
     unittest.main()

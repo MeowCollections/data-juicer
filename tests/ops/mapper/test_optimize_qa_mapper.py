@@ -53,5 +53,49 @@ class OptimizeQAMapperTest(DataJuicerTestCaseBase):
     #     self._run_op(enable_vllm=True, sampling_params=sampling_params)
 
 
+class ParseOutputTest(DataJuicerTestCaseBase):
+    """Test parse_output method without requiring model initialization."""
+
+    def _create_op(self):
+        """Create an OptimizeQAMapper with API mode (no model download)."""
+        return OptimizeQAMapper(
+            api_or_hf_model='test-model',
+            is_hf_model=False,
+        )
+
+    def test_parse_output_normal(self):
+        op = self._create_op()
+        raw_output = '【问题】优化后的问题【回答】优化后的回答'
+        result = op.parse_output(raw_output)
+        self.assertIsNotNone(result)
+        self.assertEqual(result[0], '优化后的问题')
+        self.assertEqual(result[1], '优化后的回答')
+
+    def test_parse_output_empty(self):
+        op = self._create_op()
+        raw_output = ''
+        result = op.parse_output(raw_output)
+        self.assertEqual(result, (None, None))
+
+
+class EdgeCaseTest(DataJuicerTestCaseBase):
+    """Test edge cases without requiring model or API access."""
+
+    def test_empty_query(self):
+        """Test behavior when query is empty string."""
+        op = OptimizeQAMapper(
+            api_or_hf_model='test-model',
+            is_hf_model=False,
+        )
+        sample = {
+            'query': '',
+            'response': '这是一个回答',
+        }
+        # build_input should still work with empty query
+        input_prompt = op.build_input(sample)
+        self.assertIn('【问题】', input_prompt)
+        self.assertIn('【回答】', input_prompt)
+
+
 if __name__ == '__main__':
     unittest.main()

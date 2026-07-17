@@ -7,6 +7,21 @@ from data_juicer.ops.mapper.dialog_sentiment_intensity_mapper import DialogSenti
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_from_fork
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, MetaKeys
 
+
+class DialogSentimentIntensityUnitTest(DataJuicerTestCaseBase):
+    """Pure logic tests that do not require an external API."""
+
+    def test_parse_output_extracts_analysis_and_score(self):
+        op = DialogSentimentIntensityMapper(api_model="any-model")
+        self.assertEqual(
+            op.parse_output("情绪分析：明显积极。\n情绪值：3\n"),
+            ("明显积极。", 3),
+        )
+
+    def test_parse_output_returns_default_for_unstructured_input(self):
+        op = DialogSentimentIntensityMapper(api_model="any-model")
+        self.assertEqual(op.parse_output("unstructured"), ("", 0))
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class TestDialogSentimentIntensityMapper(DataJuicerTestCaseBase):
     # before running this test, set below environment variables:

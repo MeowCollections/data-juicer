@@ -1,10 +1,15 @@
+import asyncio
 import json
 import os
+import pathlib
+import shutil
 import tempfile
 import unittest
+import warnings
 import regex as re
 import gzip
 
+import numpy as np
 import pandas as pd
 
 from data_juicer.utils.file_utils import (
@@ -21,6 +26,9 @@ from data_juicer.utils.file_utils import (
     single_partition_write_with_filename,
     transfer_filename,
     copy_data,
+    follow_read,
+    load_numpy,
+    load_numpy_list,
 )
 from data_juicer.utils.mm_utils import Fields
 
@@ -31,12 +39,11 @@ class FileUtilsTest(DataJuicerTestCaseBase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.temp_output_path = "tmp/test_file_utils/"
-        os.makedirs(self.temp_output_path)
+        self.temp_output_path = tempfile.mkdtemp(prefix="dj_test_file_utils_")
 
     def tearDown(self):
         if os.path.exists(self.temp_output_path):
-            os.system(f"rm -rf {self.temp_output_path}")
+            shutil.rmtree(self.temp_output_path)
         super().tearDown()
 
     def test_find_files_with_suffix(self):
@@ -68,8 +75,16 @@ class FileUtilsTest(DataJuicerTestCaseBase):
         self.assertEqual(result_txt, expected_txt)
 
     def test_is_absolute_path(self):
-        self.assertFalse(is_absolute_path(self.temp_output_path))
-        self.assertTrue(is_absolute_path(os.path.abspath(self.temp_output_path)))
+        # relative paths -> False
+        self.assertFalse(is_absolute_path("relative/path"))
+        self.assertFalse(is_absolute_path("./a/b"))
+        self.assertFalse(is_absolute_path(""))
+        # literal absolute path (not derived from the SUT's own logic) -> True
+        abs_literal = os.sep + os.path.join("abs", "path")
+        self.assertTrue(is_absolute_path(abs_literal))
+        # Path input is supported by the signature (Union[str, Path])
+        self.assertTrue(is_absolute_path(pathlib.Path(abs_literal)))
+        self.assertFalse(is_absolute_path(pathlib.Path("relative/path")))
 
     def test_add_suffix_to_filename(self):
         self.assertEqual(add_suffix_to_filename("test.txt", "_suffix"), "test_suffix.txt")
@@ -163,6 +178,46 @@ class FileUtilsTest(DataJuicerTestCaseBase):
 
         self.assertIn(".jsonl.gz", result)
         self.assertEqual(result[".jsonl.gz"], [gz_path])
+
+    def test_load_numpy_accepts_arrays_paths_and_lists(self):
+        arr = np.array([1, 2, 3])
+        self.assertIs(load_numpy(arr), arr)
+
+        npy_path = os.path.join(self.temp_output_path, "array.npy")
+        np.save(npy_path, arr)
+        self.assertEqual(load_numpy(npy_path).tolist(), [1, 2, 3])
+        self.assertEqual(load_numpy([4, 5]).tolist(), [4, 5])
+
+        loaded = load_numpy_list([arr, npy_path, [6]])
+        self.assertEqual([item.tolist() for item in loaded], [[1, 2, 3], [1, 2, 3], [6]])
+
+    def test_follow_read_reads_existing_content(self):
+        logfile = os.path.join(self.temp_output_path, "log.txt")
+        with open(logfile, "w") as f:
+            f.write("ready\n")
+
+        async def read_once():
+            reader = follow_read(logfile)
+            try:
+                return await reader.__anext__()
+            finally:
+                await reader.aclose()
+
+        self.assertEqual(asyncio.run(read_once()), "ready\n")
+
+    def test_transfer_filename_rebases_existing_produced_data_hash(self):
+        produced_root = os.path.join(self.temp_output_path, Fields.multimodal_data_output_dir)
+        old_dir = os.path.join(produced_root, "old_op")
+        os.makedirs(old_dir, exist_ok=True)
+        original = os.path.join(old_dir, "frame__dj_hash_#old#.jpg")
+        with open(original, "w") as f:
+            f.write("image")
+
+        transferred = transfer_filename(original, "new_op", strength=2)
+
+        self.assertIn(os.path.join(self.temp_output_path, Fields.multimodal_data_output_dir, "new_op"), transferred)
+        self.assertIn("frame__dj_hash_#", transferred)
+        self.assertNotIn("old#", transferred)
 
 
 class ByteSizeToSizeStrTest(DataJuicerTestCaseBase):
@@ -415,6 +470,33 @@ class ReadSinglePartitionTest(DataJuicerTestCaseBase):
             [path], filetype="parquet", columns=["text"])
         self.assertIn("text", df.columns)
         self.assertNotIn("extra", df.columns)
+
+    def test_read_jsonl_input_meta_and_columns_add_filename(self):
+        path = self._write_jsonl("typed.jsonl", [{"text": "row", "score": 7, "drop": "x"}])
+        columns = ["text"]
+
+        df = read_single_partition(
+            [path],
+            filetype="jsonl",
+            add_filename=True,
+            input_meta="{'score': 'int64'}",
+            columns=columns,
+        )
+
+        self.assertEqual(list(df.columns), ["filename", "text"])
+        self.assertEqual(df["filename"].iloc[0], "typed.jsonl")
+        self.assertEqual(df["text"].iloc[0], "row")
+
+    def test_read_parquet_warns_when_input_meta_is_ignored(self):
+        path = os.path.join(self.tmpdir, "data.parquet")
+        pd.DataFrame({"text": ["a"], "num": [1]}).to_parquet(path)
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            df = read_single_partition([path], filetype="parquet", input_meta={"num": "int64"})
+
+        self.assertEqual(len(df), 1)
+        self.assertTrue(any("input_meta is only valid" in str(item.message) for item in caught))
 
     def test_read_multiple_jsonl_files(self):
         p1 = self._write_jsonl("a.jsonl", [{"text": "row1"}])

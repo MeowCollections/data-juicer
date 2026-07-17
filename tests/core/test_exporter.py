@@ -1,10 +1,16 @@
+import json
 import os
+import shutil
 import tempfile
 import unittest
 import jsonlines as jl
+
+import numpy as np
 from datasets import Dataset
 from cryptography.fernet import Fernet
+
 from data_juicer.core import Exporter
+from data_juicer.core import exporter as exporter_module
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 from data_juicer.utils.constant import Fields, HashKeys
 from data_juicer.utils.file_utils import add_suffix_to_filename
@@ -350,6 +356,120 @@ class ExporterEncryptTest(DataJuicerTestCaseBase):
         # Stats file must be encrypted
         self.assertFalse(raw.lstrip().startswith(b'{'))
         self.fernet.decrypt(raw)  # must not raise
+
+
+class CoreExporterFileTest(DataJuicerTestCaseBase):
+    def setUp(self):
+        super().setUp()
+        self.tmp_dir = tempfile.mkdtemp(prefix="dj_exporter_file_")
+        self.Exporter = exporter_module.Exporter
+        self.Fields = exporter_module.Fields
+        self.HashKeys = exporter_module.HashKeys
+        self.dataset = Dataset.from_list([
+            {
+                "text": "text 1",
+                self.Fields.stats: {"score": 1},
+                self.Fields.meta: {"source": "a"},
+                self.HashKeys.hash: "h1",
+            },
+            {
+                "text": "text 2",
+                self.Fields.stats: {"score": 2},
+                self.Fields.meta: {"source": "b"},
+                self.HashKeys.hash: "h2",
+            },
+            {
+                "text": "text 3",
+                self.Fields.stats: {"score": 3},
+                self.Fields.meta: {"source": "c"},
+                self.HashKeys.hash: "h3",
+            },
+        ])
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        super().tearDown()
+
+    def test_meta_stats_json_strings_are_restored_before_export(self):
+        ds = Dataset.from_dict({
+            self.Fields.meta: ['{"source": "zh"}', '{"source": "en"}'],
+            self.Fields.stats: ['{"score": 1}', '{"score": 2}'],
+        })
+
+        fixed = self.Exporter._ensure_meta_stats_dicts_for_export(ds)
+
+        self.assertEqual(fixed[0][self.Fields.meta], {"source": "zh"})
+        self.assertEqual(fixed[0][self.Fields.stats], {"score": 1})
+        self.assertEqual(fixed[1][self.Fields.meta], {"source": "en"})
+        self.assertEqual(fixed[1][self.Fields.stats], {"score": 2})
+
+    def test_invalid_meta_stats_json_strings_are_left_unchanged(self):
+        ds = Dataset.from_dict({
+            self.Fields.meta: ["not-json"],
+            self.Fields.stats: ["also-not-json"],
+        })
+
+        fixed = self.Exporter._ensure_meta_stats_dicts_for_export(ds)
+
+        self.assertEqual(fixed[0][self.Fields.meta], "not-json")
+        self.assertEqual(fixed[0][self.Fields.stats], "also-not-json")
+
+    def test_meta_stats_restore_is_noop_without_columns(self):
+        ds = Dataset.from_list([{"text": "plain"}])
+
+        self.assertIs(self.Exporter._ensure_meta_stats_dicts_for_export(ds), ds)
+
+    def test_row_to_json_serializable_handles_scalars_lists_and_arrow_values(self):
+        class ArrowLike:
+            def as_py(self):
+                return {"nested": np.int64(3)}
+
+        class ListLike:
+            def tolist(self):
+                return [1, 2]
+
+        row = {
+            "scalar": np.int64(7),
+            "array": ListLike(),
+            "nested": [ArrowLike()],
+        }
+
+        self.assertEqual(
+            self.Exporter._row_to_json_serializable(row),
+            {"scalar": 7, "array": [1, 2], "nested": [{"nested": 3}]},
+        )
+
+    def test_json_jsonl_parquet_exports_and_filtered_shards(self):
+        jsonl_path = os.path.join(self.tmp_dir, "out.jsonl")
+        json_path = os.path.join(self.tmp_dir, "out.json")
+        parquet_path = os.path.join(self.tmp_dir, "out.parquet")
+        shard_path = os.path.join(self.tmp_dir, "shards", "out.jsonl")
+
+        self.Exporter.to_jsonl(self.dataset, jsonl_path)
+        self.Exporter.to_json(self.dataset, json_path, num_proc=1)
+        self.Exporter.to_parquet(self.dataset, parquet_path)
+
+        with open(jsonl_path, encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f]
+        self.assertEqual(rows[0]["text"], "text 1")
+        self.assertTrue(os.path.exists(json_path))
+        self.assertTrue(os.path.exists(parquet_path))
+
+        filtered = self.dataset.filter(lambda row: row["text"] != "text 2")
+        exporter = self.Exporter(
+            export_path=shard_path,
+            export_shard_size=1,
+            export_in_parallel=False,
+            num_proc=1,
+            export_ds=True,
+            keep_stats_in_res_ds=False,
+            keep_hashes_in_res_ds=False,
+            export_stats=False,
+        )
+        exporter.export(filtered)
+
+        shard_files = os.listdir(os.path.dirname(shard_path))
+        self.assertTrue(any(name.endswith(".jsonl") for name in shard_files))
 
 
 if __name__ == '__main__':

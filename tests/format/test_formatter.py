@@ -7,7 +7,7 @@ from cryptography.fernet import Fernet
 
 from data_juicer.core.data import NestedDataset as Dataset
 
-from data_juicer.format.formatter import load_dataset, unify_format
+from data_juicer.format.formatter import BaseFormatter, load_dataset, unify_format
 from data_juicer.utils.constant import Fields
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase
 
@@ -20,6 +20,10 @@ class UnifyFormatTest(DataJuicerTestCaseBase):
         ds = Dataset.from_list(sample['source'])
         ds = unify_format(ds, **args)
         self.assertEqual(ds.to_list(), sample['target'])
+
+    def test_base_formatter_requires_load_dataset_override(self):
+        with self.assertRaises(NotImplementedError):
+            BaseFormatter().load_dataset()
 
     def test_text_key(self):
         samples = [
@@ -665,7 +669,7 @@ class UnifyFormatPathConversionTest(DataJuicerTestCaseBase):
                 self.assertTrue(path.startswith(self.ds_dir))
 
     def test_preserves_absolute_paths(self):
-        abs_path = "/absolute/path/img.jpg"
+        abs_path = os.path.join(self.tmp_dir, "img.jpg")
         ds = HFDataset.from_dict({
             "text": ["sample"],
             "images": [[abs_path]],
@@ -835,7 +839,7 @@ class UnifyFormatAudioVideoPathTest(DataJuicerTestCaseBase):
         self.assertTrue(os.path.isabs(result[0]["my_video"][0]))
 
     def test_preserves_absolute_audio_path(self):
-        abs_path = "/abs/audio.wav"
+        abs_path = os.path.join(self.tmp_dir, "audio.wav")
         ds = HFDataset.from_dict({
             "text": ["s1"],
             "audios": [[abs_path]],
@@ -858,4 +862,3 @@ class UnifyFormatAudioVideoPathTest(DataJuicerTestCaseBase):
         )
         result = unify_format(ds, text_keys=["text"], global_cfg=cfg)
         self.assertEqual(result[0]["audios"], [])
-

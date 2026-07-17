@@ -1,7 +1,7 @@
 import unittest
 
 from data_juicer.core import NestedDataset
-from data_juicer.ops.base_op import OP
+from data_juicer.ops.base_op import Mapper, OP
 from data_juicer.ops.load import load_ops
 from data_juicer.ops.op_fusion import fuse_operators, GeneralFusedOP
 from data_juicer.utils.constant import Fields
@@ -2138,6 +2138,93 @@ class FusedFilterFingerprintTest(DataJuicerTestCaseBase):
         fused_b = FusedFilter('fused', [f1b, f2b])
 
         self.assertNotEqual(Hasher.hash(fused_a), Hasher.hash(fused_b))
+
+
+class _MockUpperCaseMapper(Mapper):
+    """Mapper that uppercases text and returns a NEW dict."""
+    _batched_op = True
+
+    def __init__(self, text_key='text', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.text_key = text_key
+        self._name = 'mock_upper_case_mapper'
+
+    def process_batched(self, samples, **kwargs):
+        new_samples = samples.copy()
+        new_samples[self.text_key] = [t.upper() for t in samples[self.text_key]]
+        return new_samples
+
+
+class _MockSuffixMapper(Mapper):
+    """Mapper that appends a suffix and returns a NEW dict."""
+    _batched_op = True
+
+    def __init__(self, suffix='_DONE', text_key='text', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.text_key = text_key
+        self.suffix = suffix
+        self._name = 'mock_suffix_mapper'
+
+    def process_batched(self, samples, **kwargs):
+        new_samples = samples.copy()
+        new_samples[self.text_key] = [t + self.suffix for t in samples[self.text_key]]
+        return new_samples
+
+
+class _MockInPlaceMapper(Mapper):
+    """Mapper that mutates in-place (masks the new-dict bug)."""
+    _batched_op = True
+
+    def __init__(self, text_key='text', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.text_key = text_key
+        self._name = 'mock_inplace_mapper'
+
+    def process_batched(self, samples, **kwargs):
+        samples[self.text_key] = [t.lower() for t in samples[self.text_key]]
+        return samples
+
+
+class GeneralFusedOPMapperBugTest(DataJuicerTestCaseBase):
+    """Regression: mapper results must chain correctly in GeneralFusedOP."""
+
+    def _make_fused_op(self, ops):
+        fused = GeneralFusedOP.__new__(GeneralFusedOP)
+        fused._name = 'GeneralFusedOP:test'
+        fused.fused_ops = ops
+        fused.accelerator = 'cpu'
+        fused.batch_size = 10
+        fused.num_proc = 1
+        return fused
+
+    def test_two_new_dict_mappers_results_chained(self):
+        fused_op = self._make_fused_op([
+            _MockUpperCaseMapper(), _MockSuffixMapper(suffix='_DONE')])
+        samples = {
+            'text': ['hello', 'world'],
+            Fields.stats: [{}, {}],
+        }
+        result = fused_op.process_batched(samples)
+        self.assertEqual(result['text'], ['HELLO_DONE', 'WORLD_DONE'])
+
+    def test_single_mapper_result_returned(self):
+        fused_op = self._make_fused_op([_MockUpperCaseMapper()])
+        samples = {
+            'text': ['hello', 'world'],
+            Fields.stats: [{}, {}],
+        }
+        result = fused_op.process_batched(samples)
+        self.assertEqual(result['text'], ['HELLO', 'WORLD'])
+
+    def test_inplace_then_newdict_mapper(self):
+        fused_op = self._make_fused_op([
+            _MockInPlaceMapper(), _MockSuffixMapper(suffix='_END')])
+        samples = {
+            'text': ['HELLO', 'WORLD'],
+            Fields.stats: [{}, {}],
+        }
+        result = fused_op.process_batched(samples)
+        self.assertEqual(result['text'], ['hello_END', 'world_END'])
 
 
 if __name__ == '__main__':

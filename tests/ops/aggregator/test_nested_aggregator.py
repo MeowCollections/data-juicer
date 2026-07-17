@@ -8,6 +8,34 @@ from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_fro
 
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, MetaKeys
 
+
+class NestedAggregatorUnitTest(DataJuicerTestCaseBase):
+    """Pure logic tests that do not require an external API."""
+
+    def test_rejects_missing_or_non_string_meta(self):
+        op = NestedAggregator(api_model="any-model")
+
+        missing = {Fields.meta: [{"other": "text"}], Fields.batch_meta: {}}
+        self.assertIs(op.process_single(missing), missing)
+
+        not_text = {
+            Fields.meta: [{MetaKeys.event_description: 3}],
+            Fields.batch_meta: {},
+        }
+        self.assertIs(op.process_single(not_text), not_text)
+
+    def test_respects_existing_batch_meta_output(self):
+        op = NestedAggregator(api_model="any-model")
+
+        existing = {
+            Fields.meta: [{MetaKeys.event_description: "text"}],
+            Fields.batch_meta: {MetaKeys.event_description: "kept"},
+        }
+        self.assertIs(op.process_single(existing), existing)
+        self.assertEqual(
+            existing[Fields.batch_meta][MetaKeys.event_description], "kept"
+        )
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class NestedAggregatorTest(DataJuicerTestCaseBase):
 

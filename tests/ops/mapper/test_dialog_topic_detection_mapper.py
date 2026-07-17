@@ -7,6 +7,25 @@ from data_juicer.ops.mapper.dialog_topic_detection_mapper import DialogTopicDete
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_from_fork
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, MetaKeys
 
+
+class DialogTopicDetectionUnitTest(DataJuicerTestCaseBase):
+    """Pure logic tests that do not require an external API."""
+
+    def test_existing_meta_short_circuits_processing(self):
+        op = DialogTopicDetectionMapper(api_model="any-model")
+
+        sample = {
+            "history": [["你好", "你好"]],
+            "query": "评测结果如何？",
+            "response": "不错。",
+            Fields.meta: {
+                MetaKeys.dialog_topic_labels: ["existing"],
+                MetaKeys.dialog_topic_labels_analysis: ["kept"],
+            },
+        }
+        self.assertIs(op.process_single(sample), sample)
+        self.assertEqual(sample[Fields.meta][MetaKeys.dialog_topic_labels], ["existing"])
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class TestDialogTopicDetectionMapper(DataJuicerTestCaseBase):
     # before running this test, set below environment variables:

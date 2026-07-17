@@ -7,6 +7,57 @@ from data_juicer.ops.mapper.extract_keyword_mapper import ExtractKeywordMapper
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_from_fork
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, MetaKeys
 
+
+class ExtractKeywordMapperParseOutputTest(DataJuicerTestCaseBase):
+
+    def _make_op(self):
+        return ExtractKeywordMapper(api_model='fake')
+
+    def test_parse_output_normal(self):
+        op = self._make_op()
+        raw_output = '("content_keywords" "power dynamics, ideological conflict, discovery")'
+        result = op.parse_output(raw_output)
+        self.assertIsInstance(result, list)
+        self.assertGreater(len(result), 0)
+        self.assertIn('power dynamics', result)
+        self.assertIn('ideological conflict', result)
+        self.assertIn('discovery', result)
+
+    def test_parse_output_with_delimiter(self):
+        op = self._make_op()
+        raw_output = (
+            '("content_keywords" "rebellion, control")'
+            '<|COMPLETE|>'
+        )
+        result = op.parse_output(raw_output)
+        self.assertIsInstance(result, list)
+        self.assertIn('rebellion', result)
+        self.assertIn('control', result)
+
+    def test_parse_output_empty(self):
+        op = self._make_op()
+        result = op.parse_output('')
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 0)
+
+
+class ExtractKeywordMapperEdgeCaseTest(DataJuicerTestCaseBase):
+
+    def test_already_generated_skip(self):
+        op = ExtractKeywordMapper(api_model='fake')
+        sample = {
+            'text': 'some text content',
+            Fields.meta: {
+                MetaKeys.keyword: ['existing', 'keywords'],
+            },
+        }
+        result = op.process_single(sample)
+        self.assertEqual(
+            result[Fields.meta][MetaKeys.keyword],
+            ['existing', 'keywords'],
+        )
+
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class ExtractKeywordMapperTest(DataJuicerTestCaseBase):
 
@@ -65,6 +116,33 @@ class ExtractKeywordMapperTest(DataJuicerTestCaseBase):
         # export OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1/
         # export OPENAI_API_KEY=your_dashscope_key
         self._run_op(DEFAULT_API_MODEL, sampling_params={'enable_thinking': False})
+
+    def test_drop_text(self):
+        op = ExtractKeywordMapper(
+            api_model=DEFAULT_API_MODEL,
+            drop_text=True,
+            sampling_params={'enable_thinking': False},
+        )
+        raw_text = '李莲花与方多病合作破案，揭露了各种阴谋。'
+        sample = {'text': raw_text, Fields.meta: {}}
+        result = op.process_single(sample)
+        self.assertNotIn('text', result)
+        self.assertIn(MetaKeys.keyword, result[Fields.meta])
+
+    def test_custom_key(self):
+        op = ExtractKeywordMapper(
+            api_model=DEFAULT_API_MODEL,
+            keyword_key='my_keywords',
+            sampling_params={'enable_thinking': False},
+        )
+        raw_text = '李莲花与方多病合作破案，揭露了各种阴谋。'
+        samples = [{'text': raw_text}]
+        dataset = Dataset.from_list(samples)
+        dataset = op.run(dataset)
+        sample = dataset[0]
+        self.assertIn('my_keywords', sample[Fields.meta])
+        self.assertNotEqual(len(sample[Fields.meta]['my_keywords']), 0)
+        logger.info(f"keywords: {sample[Fields.meta]['my_keywords']}")
 
 
 if __name__ == '__main__':

@@ -8,6 +8,24 @@ from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_fro
 
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, BatchMetaKeys, MetaKeys
 
+
+class MostRelevantEntitiesAggregatorUnitTest(DataJuicerTestCaseBase):
+    """Pure logic tests that do not require an external API."""
+
+    def test_parse_output_extracts_entity_list(self):
+        op = MostRelevantEntitiesAggregator(
+            api_model="any-model",
+            entity="李莲花",
+            query_entity_type="人物",
+        )
+        self.assertEqual(
+            list(op.parse_output("## 列表\nrolea, roleb")), ["rolea", "roleb"]
+        )
+
+    def test_validates_required_fields(self):
+        with self.assertRaises(ValueError):
+            MostRelevantEntitiesAggregator(entity="李莲花", query_entity_type=None)
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class MostRelevantEntitiesAggregatorTest(DataJuicerTestCaseBase):
 

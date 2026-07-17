@@ -889,7 +889,7 @@ class FFmpegReader(VideoReader):
         try:
             subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
             return True
-        except ImportError:
+        except (OSError, subprocess.CalledProcessError):
             return False
 
     def _kill_process(self, process):

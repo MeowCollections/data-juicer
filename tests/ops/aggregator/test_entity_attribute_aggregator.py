@@ -7,6 +7,33 @@ from data_juicer.ops.aggregator import EntityAttributeAggregator
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_from_fork
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, BatchMetaKeys, MetaKeys
 
+
+class EntityAttributeAggregatorUnitTest(DataJuicerTestCaseBase):
+    """Pure logic tests that do not require an external API."""
+
+    def test_parse_output_extracts_attribute_section(self):
+        op = EntityAttributeAggregator(
+            api_model="any-model",
+            entity="李莲花",
+            attribute="身份背景",
+        )
+        self.assertEqual(
+            op.parse_output("# 李莲花\n## 身份背景\n旧身份是李相夷。"),
+            "旧身份是李相夷。",
+        )
+
+    def test_parse_output_returns_empty_for_unformatted_input(self):
+        op = EntityAttributeAggregator(
+            api_model="any-model",
+            entity="李莲花",
+            attribute="身份背景",
+        )
+        self.assertEqual(op.parse_output("not formatted"), "")
+
+    def test_validates_required_fields(self):
+        with self.assertRaises(ValueError):
+            EntityAttributeAggregator(entity=None, attribute="身份背景")
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class EntityAttributeAggregatorTest(DataJuicerTestCaseBase):
 

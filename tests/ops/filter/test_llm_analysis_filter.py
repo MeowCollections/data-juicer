@@ -1,9 +1,275 @@
+import json
 import unittest
+
+import numpy as np
 from loguru import logger
+
 from data_juicer.core.data import NestedDataset as Dataset
 from data_juicer.ops.filter.llm_analysis_filter import LLMAnalysisFilter
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, StatsKeys
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_from_fork
+
+
+class LLMAnalysisFilterParseOutputTest(DataJuicerTestCaseBase):
+    """Tests for parse_output and static helper methods (no API needed)."""
+
+    def _make_op(self):
+        return LLMAnalysisFilter(api_or_hf_model='fake')
+
+    # -- parse_output ---
+
+    def test_parse_output_none(self):
+        op = self._make_op()
+        score, record, tags = op.parse_output(None)
+        self.assertEqual(score, 0.0)
+        self.assertIsNone(record)
+        self.assertIsNone(tags)
+
+    def test_parse_output_empty_string(self):
+        op = self._make_op()
+        score, record, tags = op.parse_output('')
+        self.assertEqual(score, 0.0)
+        self.assertIsNone(record)
+        self.assertIsNone(tags)
+
+    def test_parse_output_whitespace_only(self):
+        op = self._make_op()
+        score, record, tags = op.parse_output('   ')
+        self.assertEqual(score, 0.0)
+        self.assertIsNone(record)
+        self.assertIsNone(tags)
+
+    def test_parse_output_no_json(self):
+        op = self._make_op()
+        score, record, tags = op.parse_output('no json here at all')
+        self.assertEqual(score, 0.0)
+        self.assertIsNone(record)
+        self.assertIsNone(tags)
+
+    def test_parse_output_invalid_json(self):
+        op = self._make_op()
+        score, record, tags = op.parse_output('{invalid json}')
+        self.assertEqual(score, 0.0)
+        self.assertIsNone(record)
+        self.assertIsNone(tags)
+
+    def test_parse_output_valid_full(self):
+        op = self._make_op()
+        raw = json.dumps({
+            'dimension_scores': {
+                'clarity': 4, 'relevance': 5,
+                'usefulness': 3, 'fluency': 4,
+            },
+            'tags': {'topic': 'AI', 'style': 'Technical'},
+            'flags': [],
+            'rationale': 'Good quality.',
+            'recommendation': ['keep'],
+        })
+        score, record, tags = op.parse_output(raw)
+        # (4+5+3+4) / 4 / 5 = 16/20 = 0.8
+        self.assertAlmostEqual(score, 0.8)
+        self.assertIsNotNone(record)
+        self.assertEqual(tags, {'topic': 'AI', 'style': 'Technical'})
+
+    def test_parse_output_missing_dimension_scores(self):
+        op = self._make_op()
+        raw = json.dumps({
+            'tags': {'topic': 'Test'},
+            'recommendation': 'review',
+        })
+        score, record, tags = op.parse_output(raw)
+        self.assertEqual(score, 0.0)
+        self.assertIsNotNone(record)
+
+    def test_parse_output_json_with_surrounding_text(self):
+        """parse_output should extract JSON even if surrounded by text."""
+        op = self._make_op()
+        raw = 'Here is the result:\n' + json.dumps({
+            'dimension_scores': {
+                'clarity': 3, 'relevance': 3,
+                'usefulness': 3, 'fluency': 3,
+            },
+            'recommendation': ['review'],
+        }) + '\nEnd of response.'
+        score, record, tags = op.parse_output(raw)
+        self.assertAlmostEqual(score, 0.6)
+        self.assertIsNotNone(record)
+
+    def test_parse_output_custom_dim_keys(self):
+        op = LLMAnalysisFilter(
+            api_or_hf_model='fake',
+            dim_required_keys=['clarity', 'fluency'],
+        )
+        raw = json.dumps({
+            'dimension_scores': {
+                'clarity': 5, 'relevance': 1,
+                'usefulness': 1, 'fluency': 5,
+            },
+            'recommendation': [],
+        })
+        score, record, tags = op.parse_output(raw)
+        # Only clarity(5) + fluency(5) => 10/2/5 = 1.0
+        self.assertAlmostEqual(score, 1.0)
+
+    # -- _normalize_recommendation_to_str_list ---
+
+    def test_normalize_recommendation_none(self):
+        result = LLMAnalysisFilter._normalize_recommendation_to_str_list(None)
+        self.assertEqual(result, [])
+
+    def test_normalize_recommendation_string(self):
+        result = LLMAnalysisFilter._normalize_recommendation_to_str_list(
+            'keep')
+        self.assertEqual(result, ['keep'])
+
+    def test_normalize_recommendation_empty_string(self):
+        result = LLMAnalysisFilter._normalize_recommendation_to_str_list('  ')
+        self.assertEqual(result, [])
+
+    def test_normalize_recommendation_list(self):
+        result = LLMAnalysisFilter._normalize_recommendation_to_str_list(
+            ['keep', 'review'])
+        self.assertEqual(result, ['keep', 'review'])
+
+    def test_normalize_recommendation_list_with_none(self):
+        result = LLMAnalysisFilter._normalize_recommendation_to_str_list(
+            ['keep', None, 'review'])
+        self.assertEqual(result, ['keep', 'review'])
+
+    def test_normalize_recommendation_numpy_array(self):
+        arr = np.array(['keep', 'review'])
+        result = LLMAnalysisFilter._normalize_recommendation_to_str_list(arr)
+        self.assertEqual(result, ['keep', 'review'])
+
+    def test_normalize_recommendation_other_type(self):
+        result = LLMAnalysisFilter._normalize_recommendation_to_str_list(42)
+        self.assertEqual(result, ['42'])
+
+    # -- _normalize_tags_to_str ---
+
+    def test_normalize_tags_to_str_none(self):
+        result = LLMAnalysisFilter._normalize_tags_to_str(None)
+        self.assertEqual(result, '')
+
+    def test_normalize_tags_to_str_string(self):
+        result = LLMAnalysisFilter._normalize_tags_to_str('already a string')
+        self.assertEqual(result, 'already a string')
+
+    def test_normalize_tags_to_str_dict(self):
+        tags = {'topic': 'AI', 'style': 'Technical'}
+        result = LLMAnalysisFilter._normalize_tags_to_str(tags)
+        parsed = json.loads(result)
+        self.assertEqual(parsed, tags)
+
+    def test_normalize_tags_to_str_list(self):
+        tags = ['tag1', 'tag2']
+        result = LLMAnalysisFilter._normalize_tags_to_str(tags)
+        parsed = json.loads(result)
+        self.assertEqual(parsed, tags)
+
+    # -- _normalize_tags_to_dict ---
+
+    def test_normalize_tags_to_dict_none(self):
+        result = LLMAnalysisFilter._normalize_tags_to_dict(None)
+        self.assertEqual(result, {})
+
+    def test_normalize_tags_to_dict_dict(self):
+        tags = {'topic': 'AI', 'count': 5}
+        result = LLMAnalysisFilter._normalize_tags_to_dict(tags)
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result['topic'], 'AI')
+        # Non-string values are coerced to string
+        self.assertEqual(result['count'], '5')
+
+    def test_normalize_tags_to_dict_string(self):
+        result = LLMAnalysisFilter._normalize_tags_to_dict('plain tag')
+        self.assertEqual(result, {'tags': 'plain tag'})
+
+    def test_normalize_tags_to_dict_list(self):
+        result = LLMAnalysisFilter._normalize_tags_to_dict(['tag1', 'tag2'])
+        self.assertEqual(result, {'tags': 'tag1, tag2'})
+
+    # -- _normalize_record ---
+
+    def test_normalize_record_none(self):
+        result = LLMAnalysisFilter._normalize_record(None)
+        self.assertEqual(result, '')
+
+    def test_normalize_record_dict(self):
+        record = {'dimension_scores': {'clarity': 4}, 'tags': {'topic': 'AI'}}
+        result = LLMAnalysisFilter._normalize_record(record)
+        parsed = json.loads(result)
+        self.assertEqual(parsed, record)
+
+    # -- build_input ---
+
+    def test_build_input_default(self):
+        op = self._make_op()
+        sample = {'text': 'Hello world'}
+        result = op.build_input(sample)
+        self.assertIn('Hello world', result)
+        self.assertIn('Text', result)
+
+    def test_build_input_multi_field(self):
+        op = LLMAnalysisFilter(
+            api_or_hf_model='fake',
+            input_keys=['text', 'answer'],
+            field_names=['Query', 'Answer'],
+        )
+        sample = {'text': 'What is AI?', 'answer': 'Artificial Intelligence'}
+        result = op.build_input(sample)
+        self.assertIn('What is AI?', result)
+        self.assertIn('Artificial Intelligence', result)
+        self.assertIn('Query', result)
+        self.assertIn('Answer', result)
+
+    def test_build_input_missing_key(self):
+        op = LLMAnalysisFilter(
+            api_or_hf_model='fake',
+            input_keys=['text', 'missing_key'],
+            field_names=['Text', 'Missing'],
+        )
+        sample = {'text': 'Hello'}
+        # Should not raise; only available keys are formatted
+        result = op.build_input(sample)
+        self.assertIn('Hello', result)
+        self.assertNotIn('Missing', result)
+
+    # -- process_single ---
+
+    def test_process_single_zero_score_returns_true(self):
+        """When LLM analysis failed (score=0.0), the filter should not
+        discard the sample."""
+        op = self._make_op()
+        sample = {Fields.stats: {StatsKeys.llm_analysis_score: 0.0}}
+        result = op.process_single(sample)
+        self.assertTrue(result)
+
+    def test_process_single_within_range(self):
+        op = LLMAnalysisFilter(
+            api_or_hf_model='fake', min_score=0.5, max_score=1.0)
+        sample = {Fields.stats: {StatsKeys.llm_analysis_score: 0.7}}
+        result = op.process_single(sample)
+        self.assertTrue(result)
+
+    def test_process_single_below_range(self):
+        op = LLMAnalysisFilter(
+            api_or_hf_model='fake', min_score=0.5, max_score=1.0)
+        sample = {Fields.stats: {StatsKeys.llm_analysis_score: 0.3}}
+        result = op.process_single(sample)
+        self.assertFalse(result)
+
+    def test_preferred_output_lang(self):
+        """Verify that preferred_output_lang appends language instructions."""
+        op = LLMAnalysisFilter(
+            api_or_hf_model='fake', preferred_output_lang='zh')
+        self.assertIn(
+            LLMAnalysisFilter.DEFAULT_SYSTEM_PROMPT, op.system_prompt)
+        # The prompt should be longer than default because of language appendix
+        self.assertGreater(
+            len(op.system_prompt),
+            len(LLMAnalysisFilter.DEFAULT_SYSTEM_PROMPT))
+
 
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class LLMAnalysisFilterTest(DataJuicerTestCaseBase):

@@ -7,6 +7,21 @@ from data_juicer.ops.mapper.dialog_intent_detection_mapper import DialogIntentDe
 from data_juicer.utils.unittest_utils import DataJuicerTestCaseBase, skip_if_from_fork
 from data_juicer.utils.constant import DEFAULT_API_MODEL, Fields, MetaKeys
 
+
+class DialogIntentDetectionUnitTest(DataJuicerTestCaseBase):
+    """Pure logic tests that do not require an external API."""
+
+    def test_parse_output_extracts_analysis_and_label(self):
+        op = DialogIntentDetectionMapper(api_model="any-model")
+        self.assertEqual(
+            op.parse_output("意图分析：请求资料。\n意图类别：信息查找\n"),
+            ("请求资料。", "信息查找"),
+        )
+
+    def test_parse_output_returns_empty_for_unstructured_input(self):
+        op = DialogIntentDetectionMapper(api_model="any-model")
+        self.assertEqual(op.parse_output("unstructured"), ("", ""))
+
 @skip_if_from_fork("Skipping API-based test because running from a fork repo")
 class TestDialogIntentDetectionMapper(DataJuicerTestCaseBase):
     # before running this test, set below environment variables:

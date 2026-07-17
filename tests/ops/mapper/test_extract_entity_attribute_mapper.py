@@ -66,5 +66,146 @@ class ExtractEntityAttributeMapperTest(DataJuicerTestCaseBase):
         self._run_op(DEFAULT_API_MODEL, sampling_params={'enable_thinking': False})
 
 
+class ParseOutputTest(DataJuicerTestCaseBase):
+    """Tests for parse_output that do not require API access."""
+
+    def _create_op(self):
+        return ExtractEntityAttributeMapper(
+            api_model='fake',
+            query_entities=['李莲花'],
+            query_attributes=['语言风格'],
+        )
+
+    def test_parse_output_with_demos(self):
+        op = self._create_op()
+        raw_string = (
+            '# 李莲花\n'
+            '## 语言风格：\n'
+            '李莲花说话幽默风趣，常以轻松口吻化解尴尬局面。\n'
+            '### 代表性示例摘录1：\n'
+            '```\n'
+            '放心吧，我认识他十几年了，对他一清二楚。\n'
+            '```\n'
+            '### 代表性示例摘录2：\n'
+            '```\n'
+            '哎，这老马吃得也太多了。\n'
+            '```\n'
+        )
+        attribute, demos = op.parse_output(raw_string, '语言风格')
+        self.assertIn('幽默风趣', attribute)
+        self.assertEqual(len(demos), 2)
+        self.assertIn('认识他十几年', demos[0])
+        self.assertIn('老马吃得也太多了', demos[1])
+
+    def test_parse_output_no_match(self):
+        op = self._create_op()
+        raw_string = 'This string has no matching patterns at all.'
+        attribute, demos = op.parse_output(raw_string, '语言风格')
+        self.assertEqual(attribute, '')
+        self.assertEqual(len(demos), 0)
+
+    def test_parse_output_empty(self):
+        op = self._create_op()
+        attribute, demos = op.parse_output('', '语言风格')
+        self.assertEqual(attribute, '')
+        self.assertEqual(len(demos), 0)
+
+
+class EdgeCaseTest(DataJuicerTestCaseBase):
+    """Tests for edge cases that do not require API access."""
+
+    def test_already_generated_skip(self):
+        op = ExtractEntityAttributeMapper(
+            api_model='fake',
+            query_entities=['李莲花'],
+            query_attributes=['语言风格'],
+        )
+        sample = {
+            'text': '一些文本',
+            Fields.meta: {
+                MetaKeys.main_entities: ['李莲花'],
+                MetaKeys.attributes: ['语言风格'],
+                MetaKeys.attribute_descriptions: ['幽默风趣'],
+                MetaKeys.attribute_support_texts: [['示例']],
+            },
+        }
+        result = op.process_single(sample)
+        # Should return the sample unchanged (early return)
+        self.assertEqual(
+            result[Fields.meta][MetaKeys.main_entities], ['李莲花'])
+        self.assertEqual(
+            result[Fields.meta][MetaKeys.attributes], ['语言风格'])
+        self.assertEqual(
+            result[Fields.meta][MetaKeys.attribute_descriptions], ['幽默风趣'])
+        self.assertEqual(
+            result[Fields.meta][MetaKeys.attribute_support_texts], [['示例']])
+
+    def test_empty_query_entities(self):
+        op = ExtractEntityAttributeMapper(
+            api_model='fake',
+            query_entities=[],
+            query_attributes=['语言风格'],
+        )
+        sample = {
+            'text': '一些文本',
+            Fields.meta: {},
+        }
+        result = op.process_single(sample)
+        # With no entities, the nested loop produces empty lists
+        self.assertEqual(result[Fields.meta][MetaKeys.main_entities], [])
+        self.assertEqual(result[Fields.meta][MetaKeys.attributes], [])
+        self.assertEqual(
+            result[Fields.meta][MetaKeys.attribute_descriptions], [])
+        self.assertEqual(
+            result[Fields.meta][MetaKeys.attribute_support_texts], [])
+
+
+@skip_if_from_fork(
+    "Skipping API-based test because running from a fork repo")
+class ExtractEntityAttributeMapperAPITest(DataJuicerTestCaseBase):
+    """Additional API-based tests for drop_text and custom keys."""
+
+    def test_drop_text(self):
+        op = ExtractEntityAttributeMapper(
+            api_model=DEFAULT_API_MODEL,
+            query_entities=['李莲花'],
+            query_attributes=['语言风格'],
+            drop_text=True,
+            sampling_params={'enable_thinking': False},
+        )
+        raw_text = (
+            '李莲花：放心吧，我认识他十几年了，对他一清二楚。\n'
+            '方多病：认识十几年？你上次才说是一面之缘？\n'
+        )
+        sample = {'text': raw_text, Fields.meta: {}}
+        result = op.process_single(sample)
+        self.assertNotIn('text', result)
+        self.assertIn(MetaKeys.main_entities, result[Fields.meta])
+
+    def test_custom_keys(self):
+        op = ExtractEntityAttributeMapper(
+            api_model=DEFAULT_API_MODEL,
+            query_entities=['李莲花'],
+            query_attributes=['语言风格'],
+            entity_key='my_entity',
+            attribute_key='my_attr',
+            attribute_desc_key='my_desc',
+            support_text_key='my_support',
+            sampling_params={'enable_thinking': False},
+        )
+        raw_text = (
+            '李莲花：放心吧，我认识他十几年了，对他一清二楚。\n'
+            '方多病：认识十几年？你上次才说是一面之缘？\n'
+        )
+        samples = [{'text': raw_text}]
+        dataset = Dataset.from_list(samples)
+        dataset = op.run(dataset)
+        result = dataset[0]
+        self.assertIn('my_entity', result[Fields.meta])
+        self.assertIn('my_attr', result[Fields.meta])
+        self.assertIn('my_desc', result[Fields.meta])
+        self.assertIn('my_support', result[Fields.meta])
+
+
 if __name__ == '__main__':
     unittest.main()

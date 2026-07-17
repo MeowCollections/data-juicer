@@ -184,9 +184,9 @@ All the specific operators are listed below, each featured with several capabili
 | agent_bad_case_signal_mapper | 💻CPU 🟡Beta | Attach structured bad-case *signals* and a conservative *tier* to each sample. 将结构化的坏情况 * 信号 * 和保守 * 层 * 附加到每个样本。 | - | - |
 | agent_dialog_normalize_mapper | 🔤Text 💻CPU 🟡Beta | Normalize agent format (messages + choices) to DJ fields. 将代理格式 (消息选择) 标准化为DJ字段。 | - | - |
 | agent_insight_llm_mapper | 💻CPU 🔗API 🟡Beta | Synthesize stats + LLM eval text into ``meta.agent_insight_llm`` (JSON). 将stats LLM eval文本合成为 &#39;&#39;meta.agent_insight_llm &#39;&#39;(JSON)。 | - | - |
-| agent_skill_insight_mapper | 💻CPU 🔗API 🔴Alpha | Summarize agent_tool_types and agent_skill_types into insights via LLM. 通过大语言模型将代理工具类型和代理技能类型总结为洞察。 | - | - |
+| agent_skill_insight_mapper | 💻CPU 🔗API 🟡Beta | Summarize agent_tool_types and agent_skill_types into insights via LLM. 通过大语言模型将代理工具类型和代理技能类型总结为洞察。 | - | - |
 | agent_tool_relevance_mapper | 💻CPU 🔴Alpha | Rough fit between tools/capabilities and the user task (uses meta tool tags). 工具/功能与用户任务之间的粗略匹配 (使用元工具标签)。 | - | [OpenJudge tool graders](https://agentscope-ai.github.io/OpenJudge/built_in_graders/agent_graders/) |
-| agent_tool_type_mapper | 💻CPU 🔴Alpha | Set primary_tool_type and dominant_tool_types from meta.agent_tool_types. 从meta.Agent_ tool_types设置primary_tool_type和dominant_tool_types。 | - | - |
+| agent_tool_type_mapper | 💻CPU 🟡Beta | Set primary_tool_type and dominant_tool_types from meta.agent_tool_types. 从meta.Agent_ tool_types设置primary_tool_type和dominant_tool_types。 | - | - |
 | agent_trace_coherence_mapper | 🔤Text 💻CPU 🔴Alpha | Coherence of the flattened session ``text`` (goal focus, few detours). 扁平化会话 “文本” 的连贯性 (目标集中，少走弯路)。 | - | [OpenJudge trajectory graders](https://agentscope-ai.github.io/OpenJudge/built_in_graders/agent_graders/) |
 | audio_add_gaussian_noise_mapper | 📣Audio 💻CPU 🟡Beta | Mapper to add Gaussian noise to audio samples. 映射器将高斯噪声添加到音频样本。 | [info](operators/mapper/audio_add_gaussian_noise_mapper.md) | - |
 | audio_ffmpeg_wrapped_mapper | 📣Audio 💻CPU 🟢Stable | Wraps FFmpeg audio filters for processing audio files in a dataset. 包装FFmpeg音频过滤器，用于处理数据集中的音频文件。 | [info](operators/mapper/audio_ffmpeg_wrapped_mapper.md) | - |
@@ -276,7 +276,7 @@ All the specific operators are listed below, each featured with several capabili
 | sentence_split_mapper | 🔤Text 💻CPU 🟢Stable | Splits text samples into individual sentences based on the specified language. 根据指定的语言将文本样本拆分为单个句子。 | [info](operators/mapper/sentence_split_mapper.md) | - |
 | text_chunk_mapper | 🔤Text 💻CPU 🔗API 🟢Stable | Split input text into chunks based on specified criteria. 根据指定的条件将输入文本拆分为块。 | [info](operators/mapper/text_chunk_mapper.md) | - |
 | text_tagging_by_prompt_mapper | 🔤Text 🚀GPU 🌊vLLM 🧩HF 🟡Beta | Mapper to generate text tags using prompt with LLM. Mapper使用带有LLM的prompt生成文本标记。 | [info](operators/mapper/text_tagging_by_prompt_mapper.md) | - |
-| tool_success_tagger_mapper | 💻CPU 🔴Alpha | Set meta tool_success_count, tool_fail_count, tool_success_ratio. 设置meta tool_success_count、tool_fail_count、tool_success_ratio。 | - | - |
+| tool_success_tagger_mapper | 💻CPU 🟡Beta | Set meta tool_success_count, tool_fail_count, tool_success_ratio. 设置meta tool_success_count、tool_fail_count、tool_success_ratio。 | - | - |
 | usage_counter_mapper | 💻CPU 🟡Beta | Write token usage to meta from choices/usage (OpenAI/Anthropic-style). 从选择/用法 (OpenAI/Anthropic风格) 将令牌用法写入meta。 | - | - |
 | vggt_mapper | 🎬Video 🚀GPU 🟡Beta | Input a video of a single scene, and use VGGT to extract information including Camera Pose, Depth Maps, Point Maps, and 3D Point Tracks. 输入单个场景的视频，并使用VGGT提取包括相机姿态、深度图、点图和3D点轨迹的信息。 | [info](operators/mapper/vggt_mapper.md) | - |
 | video_atomic_action_segment_mapper | 🎬Video 💻CPU 🟡Beta | Segment a unified hand trajectory into atomic action clips. 将统一的手轨迹分割成原子动作片段。 | - | - |
