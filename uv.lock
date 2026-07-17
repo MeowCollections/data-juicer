@@ -1910,7 +1910,7 @@ name = "decord"
 version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy" },
+    { name = "numpy", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'win32') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/11/79/936af42edf90a7bd4e41a6cac89c913d4b47fa48a26b042d5129a9242ee3/decord-0.6.0-py3-none-manylinux2010_x86_64.whl", hash = "sha256:51997f20be8958e23b7c4061ba45d0efcd86bffd5fe81c695d0befee0d442976", size = 13602299, upload-time = "2021-06-14T21:30:55.486Z" },
@@ -6282,7 +6282,7 @@ all = [
     { name = "coverage" },
     { name = "cudf-cu12", marker = "sys_platform == 'linux'" },
     { name = "dashscope" },
-    { name = "decord" },
+    { name = "decord", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "diffusers" },
     { name = "docstring-parser" },
     { name = "easyocr" },
@@ -6343,7 +6343,7 @@ all = [
     { name = "toml" },
     { name = "torch" },
     { name = "torchaudio" },
-    { name = "torchcodec" },
+    { name = "torchcodec", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "transformers" },
     { name = "ultralytics" },
     { name = "uvloop" },
@@ -6359,7 +6359,7 @@ audio = [
     { name = "samplerate" },
     { name = "soundfile" },
     { name = "torchaudio" },
-    { name = "torchcodec" },
+    { name = "torchcodec", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
 ]
 dev = [
     { name = "black" },
@@ -6431,7 +6431,7 @@ tools = [
 ]
 vision = [
     { name = "av" },
-    { name = "decord" },
+    { name = "decord", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine == 'AMD64' and sys_platform == 'win32')" },
     { name = "diffusers" },
     { name = "imagededup" },
     { name = "opencv-contrib-python" },
@@ -6470,8 +6470,8 @@ requires-dist = [
     { name = "dashscope", marker = "extra == 'ai-services'" },
     { name = "dashscope", marker = "extra == 'all'" },
     { name = "datasets", specifier = ">=4.7.0" },
-    { name = "decord", marker = "extra == 'all'" },
-    { name = "decord", marker = "extra == 'vision'" },
+    { name = "decord", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'all') or (platform_machine == 'AMD64' and sys_platform == 'win32' and extra == 'all')" },
+    { name = "decord", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'vision') or (platform_machine == 'AMD64' and sys_platform == 'win32' and extra == 'vision')" },
     { name = "dep-logic" },
     { name = "diffusers", marker = "extra == 'all'", specifier = ">=0.33.0" },
     { name = "diffusers", marker = "extra == 'vision'", specifier = ">=0.33.0" },
@@ -6613,8 +6613,8 @@ requires-dist = [
     { name = "torch", marker = "extra == 'generic'", specifier = "==2.8.0" },
     { name = "torchaudio", marker = "extra == 'all'" },
     { name = "torchaudio", marker = "extra == 'audio'" },
-    { name = "torchcodec", marker = "extra == 'all'", specifier = "==0.7" },
-    { name = "torchcodec", marker = "extra == 'audio'", specifier = "==0.7" },
+    { name = "torchcodec", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'all') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'all') or (platform_machine == 'AMD64' and sys_platform == 'win32' and extra == 'all')", specifier = "==0.7" },
+    { name = "torchcodec", marker = "(platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'audio') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'audio') or (platform_machine == 'AMD64' and sys_platform == 'win32' and extra == 'audio')", specifier = "==0.7" },
     { name = "tqdm" },
     { name = "transformers", marker = "extra == 'all'", specifier = "==4.57.1" },
     { name = "transformers", marker = "extra == 'generic'", specifier = "==4.57.1" },
