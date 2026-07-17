@@ -3,6 +3,7 @@ import importlib
 import inspect
 import io
 import os
+import shutil
 import subprocess
 import sys
 from contextlib import redirect_stderr
@@ -1760,6 +1761,263 @@ def prepare_sam_3d_body_model(
     return estimator
 
 
+def prepare_SenseVoiceSmall_model(pretrained_model_name_or_path, **model_params):
+    """
+    Prepare and load light sharegpt4video.
+
+    :param model_name: input model name.
+    """
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models"))
+    diff_file = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models/SenseVoice_changes.diff")
+    )
+    repo_url = "https://github.com/FunAudioLLM/SenseVoice.git"
+
+    final_dir = os.path.join(base_dir, "SenseVoice")
+
+    if not os.path.exists(final_dir):
+        print(f"Starting direct clone from {repo_url}...")
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+            subprocess.run(["git", "clone", "--depth", "1", repo_url, final_dir], check=True)
+
+            if os.path.exists(diff_file):
+                print(f"Applying patch: {diff_file}")
+                subprocess.run(["git", "-C", final_dir, "apply", diff_file], check=True)
+            else:
+                print(f"Warning: Patch file not found at {diff_file}")
+
+        except (subprocess.CalledProcessError, Exception) as e:
+            print(f"Operation failed: {e}")
+            if os.path.exists(final_dir):
+                shutil.rmtree(final_dir)
+            return
+    else:
+        print(f"Directory {final_dir} already exists.")
+
+    from thirdparty.humanvbench_models.SenseVoice.model import SenseVoiceSmall
+
+    logger.info("Loading ASR_model model...")
+    ASR_Emo_model, kwargs1 = SenseVoiceSmall.from_pretrained(model=pretrained_model_name_or_path)
+
+    ASR_Emo_model.eval()
+    return ASR_Emo_model, kwargs1
+
+
+def prepare_light_asd_model(pretrained_model_name_or_path="weight/finetuning_TalkSet.model", **model_params):
+    """
+    Prepare and load light asd model.
+
+    :param model_name: input model name.
+    """
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models"))
+    pretrained_model_name_or_path = os.path.join(base_dir, "Light-ASD/weight/finetuning_TalkSet.model")
+
+    logger.info("Loading light_asd model...")
+    from ASD import ASD
+
+    model = ASD()
+    model.loadParameters(pretrained_model_name_or_path)
+    model.eval()
+    return model
+
+
+# import sys
+# sys.path.append("../thirdparty/humanvbench_models/Light-ASD")
+def prepare_YOLOv8_human_model(
+    pretrained_model_name_or_path="./thirdparty/humanvbench_models/YOLOv8_human/weights/best.pt", **model_params
+):
+    """
+    Prepare and load light YOLOv8_human.
+
+    :param model_name: input model name.
+    """
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models"))
+    diff_file = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models/YOLOv8_human_changes.diff")
+    )
+    repo_url = "https://github.com/jahongir7174/YOLOv8-human.git"
+
+    old_name = "YOLOv8-human"
+    new_name = "YOLOv8_human"
+
+    target_dir = os.path.join(base_dir, old_name)
+    final_dir = os.path.join(base_dir, new_name)
+
+    if not os.path.exists(final_dir):
+        print(f"Starting direct clone from {repo_url}...")
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+
+            subprocess.run(["git", "clone", "--depth", "1", repo_url, target_dir], check=True)
+
+            print(f"Renaming {old_name} to {new_name}...")
+            os.rename(target_dir, final_dir)
+
+            if os.path.exists(diff_file):
+                print(f"Applying patch: {diff_file}")
+                subprocess.run(["git", "-C", final_dir, "apply", diff_file], check=True)
+                print("Setup completed successfully.")
+            else:
+                print(f"Warning: Patch file not found at {diff_file}")
+
+        except (subprocess.CalledProcessError, Exception) as e:
+            print(f"Operation failed: {e}")
+            for d in [target_dir, final_dir]:
+                if os.path.exists(d):
+                    shutil.rmtree(d)
+            print("Cleanup finished.")
+    else:
+        print(f"Directory {final_dir} already exists. Skipping setup.")
+
+    logger.info("Loading YOLOv8_human model...")
+    pretrained_model_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models/YOLOv8_human/weights/best.pt")
+    )
+    human_detection_model = torch.load(pretrained_model_path, weights_only=False)["model"].float()
+    human_detection_model.half()
+    human_detection_model.eval()
+    return human_detection_model
+
+
+def prepare_face_detect_S3FD_model(model_path=None, **model_params):
+    """
+    Prepare and load light asd model.
+
+    :param model_name: input model name.
+    """
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models"))
+    diff_file = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models/Light-ASD_changes.diff")
+    )
+    repo_url = "https://github.com/Junhua-Liao/Light-ASD.git"
+
+    final_dir = os.path.join(base_dir, "Light-ASD")
+    model_save_dir = os.path.join(final_dir, "model/faceDetector/s3fd")
+
+    if not os.path.exists(final_dir):
+        print(f"Starting direct clone from {repo_url}...")
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+            subprocess.run(["git", "clone", "--depth", "1", repo_url, final_dir], check=True)
+
+            if os.path.exists(diff_file):
+                print(f"Applying patch: {diff_file}")
+                subprocess.run(["git", "-C", final_dir, "apply", diff_file], check=True)
+            else:
+                print(f"Warning: Patch file not found at {diff_file}")
+
+        except (subprocess.CalledProcessError, Exception) as e:
+            print(f"Operation failed: {e}")
+            if os.path.exists(final_dir):
+                shutil.rmtree(final_dir)
+            return
+    else:
+        print(f"Directory {final_dir} already exists.")
+
+    def download_sfd_model(target_dir):
+        model_url = "https://huggingface.co/lithiumice/syncnet/resolve/main/sfd_face.pth"
+        mirror_model_url = "https://hf-mirror.com/lithiumice/syncnet/resolve/main/sfd_face.pth"
+
+        target_path = os.path.join(target_dir, "sfd_face.pth")
+
+        if os.path.exists(target_path):
+            print(f"Model file {target_path} already exists. Skipping download.")
+            return
+
+        print(f"Downloading sfd_face.pth to {target_dir}...")
+        os.makedirs(target_dir, exist_ok=True)
+
+        try:
+            subprocess.run(["wget", "-c", model_url, "-O", target_path], check=True)
+            print("Model download completed successfully.")
+        except subprocess.CalledProcessError:
+            try:
+                subprocess.run(["wget", "-c", mirror_model_url, "-O", target_path], check=True)
+                print("Model download completed successfully.")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to download model: {e}")
+                if os.path.exists(target_path):
+                    os.remove(target_path)
+
+    download_sfd_model(model_save_dir)
+    print("Setup and model preparation completed.")
+
+    sys.path.append(
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../../thirdparty/humanvbench_models/Light-ASD"))
+    )
+
+    logger.info("Loading face_detect_S3FD_model model...")
+    from model.faceDetector.s3fd import S3FD
+
+    model = S3FD()
+    return model
+
+
+def prepare_wav2vec2_age_gender_model(
+    pretrained_model_name_or_path="audeering/wav2vec2-large-robust-24-ft-age-gender", **model_params
+):
+    from transformers import Wav2Vec2Processor
+    from transformers.models.wav2vec2.modeling_wav2vec2 import (
+        Wav2Vec2Model,
+        Wav2Vec2PreTrainedModel,
+    )
+
+    pretrained_model_name_or_path = check_model_home(pretrained_model_name_or_path)
+
+    class ModelHead(nn.Module):
+        r"""Classification head."""
+
+        def __init__(self, config, num_labels):
+
+            super().__init__()
+
+            self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+            self.dropout = nn.Dropout(config.final_dropout)
+            self.out_proj = nn.Linear(config.hidden_size, num_labels)
+
+        def forward(self, features, **kwargs):
+
+            x = features
+            x = self.dropout(x)
+            x = self.dense(x)
+            x = torch.tanh(x)
+            x = self.dropout(x)
+            x = self.out_proj(x)
+
+            return x
+
+    class AgeGenderModel(Wav2Vec2PreTrainedModel):
+        r"""Speech emotion classifier."""
+
+        def __init__(self, config):
+
+            super().__init__(config)
+
+            self.config = config
+            self.wav2vec2 = Wav2Vec2Model(config)
+            self.age = ModelHead(config, 1)
+            self.gender = ModelHead(config, 3)
+            self.init_weights()
+
+        def forward(
+            self,
+            input_values,
+        ):
+
+            outputs = self.wav2vec2(input_values)
+            hidden_states = outputs[0]
+            hidden_states = torch.mean(hidden_states, dim=1)
+            logits_age = self.age(hidden_states)
+            logits_gender = torch.softmax(self.gender(hidden_states), dim=1)
+
+            return hidden_states, logits_age, logits_gender
+
+    processor = Wav2Vec2Processor.from_pretrained(pretrained_model_name_or_path)
+    model = AgeGenderModel.from_pretrained(pretrained_model_name_or_path, use_safetensors=False)
+    return model, processor
+
+
 MODEL_FUNCTION_MAPPING = {
     "api": prepare_api_model,
     "deepcalib": prepare_deepcalib_model,
@@ -1788,9 +2046,23 @@ MODEL_FUNCTION_MAPPING = {
     "embedding": prepare_embedding_model,
     "sam_3d_body": prepare_sam_3d_body_model,
     "mmlab": prepare_mmlab_model,
+    "Light_ASD": prepare_light_asd_model,
+    "SenseVoiceSmall": prepare_SenseVoiceSmall_model,
+    "YOLOv8_human": prepare_YOLOv8_human_model,
+    "face_detect_S3FD": prepare_face_detect_S3FD_model,
+    "wav2vec2_age_gender": prepare_wav2vec2_age_gender_model,
 }
 
-_MODELS_WITHOUT_FILE_LOCK = {"fasttext", "fastsam", "kenlm", "nltk", "recognizeAnything", "sentencepiece", "spacy"}
+_MODELS_WITHOUT_FILE_LOCK = {
+    "fasttext",
+    "fastsam",
+    "kenlm",
+    "nltk",
+    "recognizeAnything",
+    "sentencepiece",
+    "spacy",
+    "wav2vec2_age_gender",
+}
 
 
 def prepare_model(model_type, **model_kwargs):

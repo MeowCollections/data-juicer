@@ -43,6 +43,19 @@ class BatchMetaKeys(object):
 
 class MetaKeys(object):
     # === text related tags ===
+
+    # # humanvbench related tags (CVPR'26)
+    active_speaker_flag = "active_speaker_flag"
+    audio_speech_attribute = "audio_speech_attribute"
+    speech_ASR = "speech_ASR"
+    speech_emotion = "speech_emotion"
+    video_facetrack_attribute_demographic = "video_facetrack_attribute_demographic"
+    video_facetrack_attribute_emotion = "video_facetrack_attribute_emotion"
+    track_video_caption = "track_video_caption"
+    video_track_is_child = "video_track_is_child"
+    human_track_data_path = "human_track_data_path"
+    number_people_in_video = "number_people_in_video"
+
     # # sentiment
     dialog_sentiment_intensity = "dialog_sentiment_intensity"
     dialog_sentiment_intensity_analysis = "dialog_sentiment_intensity_analysis"
@@ -400,6 +413,9 @@ class StatsKeysConstant(object):
 
     # general-field-filter
     general_field_filter_condition = "general_field_filter_condition"
+
+    # video-face-ratio
+    video_face_exist = "video_face_exist"
 
 
 class StatsKeys(object, metaclass=StatsKeysMeta):
