@@ -31,6 +31,7 @@ from data_juicer.ops import load_ops
 from data_juicer.ops.op_fusion import fuse_operators
 from data_juicer.utils.ckpt_utils import CheckpointStrategy, RayCheckpointManager
 from data_juicer.utils.config_utils import ConfigAccessor
+from data_juicer.utils.file_utils import is_remote_path
 from data_juicer.utils.lazy_loader import LazyLoader
 
 ray = LazyLoader("ray")
@@ -162,7 +163,7 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
         super().__init__(cfg)
 
         self.executor_type = "ray_partitioned"
-        self.work_dir = self.cfg.work_dir
+        self.work_dir = self._resolve_local_path(self.cfg.work_dir)
         self.job_id = self.cfg.get("job_id", None)
 
         # Initialize temporary directory for Ray operations
@@ -184,7 +185,9 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
 
         # Checkpoint configuration and manager initialization
         checkpoint_cfg = getattr(self.cfg, "checkpoint", None)
-        checkpoint_dir = getattr(self.cfg, "checkpoint_dir", os.path.join(self.work_dir, "checkpoints"))
+        checkpoint_dir = self._resolve_local_path(
+            getattr(self.cfg, "checkpoint_dir", os.path.join(self.work_dir, "checkpoints"))
+        )
 
         if checkpoint_cfg:
             # Use ConfigAccessor to handle both dict and object configurations
@@ -255,6 +258,22 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
             encryption_key_path=getattr(self.cfg, "encryption_key_path", None),
             **export_extra_args,
         )
+
+    @staticmethod
+    def _resolve_local_path(path):
+        """Convert a local, non-empty path to an absolute path.
+
+        Ray's writers (e.g. write_parquet) run on workers whose working
+        directory may differ from the main process, so relative paths like
+        './tmp/...' cannot be resolved correctly and lead to empty checkpoint
+        directories. Absolute conversion is applied only to local, non-empty
+        paths: remote URIs (e.g. s3://, gs://, hdfs://) are left untouched to
+        avoid corrupting their scheme, and empty/None values pass through
+        unchanged to avoid raising TypeError.
+        """
+        if path and not is_remote_path(path):
+            return os.path.abspath(path)
+        return path
 
     def _configure_partitioning(self):
         """Configure partitioning based on manual or auto mode."""
