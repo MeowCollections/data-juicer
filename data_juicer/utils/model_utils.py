@@ -491,6 +491,13 @@ def prepare_api_model(
             pass
 
         try:
+            return transformers.AutoTokenizer.from_pretrained(
+                pretrained_model_name_or_path=check_model_home(model), **processor_config
+            )
+        except Exception:
+            pass
+
+        try:
             processor = transformers.AutoProcessor.from_pretrained(
                 pretrained_model_name_or_path=check_model_home(model), **processor_config
             )

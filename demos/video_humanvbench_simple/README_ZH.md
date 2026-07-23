@@ -29,6 +29,16 @@
 | `video_captioning_face_attribute_emotion_mapper` | mapper | 通过 VideoLLaMA3 生成面部属性/情感描述。 |
 | `video_active_speaker_detect_mapper` | mapper | 通过 Light-ASD 检测活跃说话者。 |
 
+## 安装
+
+> **注意：** 这些算子需要 `thirdparty/humanvbench_models/` 下的第三方补丁/模型，目前需**源码安装**。
+
+```shell
+git clone https://github.com/datajuicer/data-juicer.git
+cd data-juicer
+pip install -e .
+```
+
 ## 快速开始
 
 由于 HumanVBench 算子涉及外部仓库的修改，这些经过调整的仓库存储在 `thirdparty/humanvbench_models`。

@@ -6,8 +6,6 @@ import subprocess
 
 import numpy as np
 import tqdm
-from scipy.interpolate import interp1d
-from scipy.io import wavfile
 
 from data_juicer.utils.lazy_loader import LazyLoader
 
@@ -15,6 +13,8 @@ cv2 = LazyLoader("cv2", "opencv-contrib-python")
 mp = LazyLoader("moviepy")
 python_speech_features = LazyLoader("python_speech_features")
 torch = LazyLoader("torch")
+scipy_interpolate = LazyLoader("scipy.interpolate", "scipy")
+wavfile = LazyLoader("scipy.io.wavfile", "scipy")
 DeepFace = None  # lazy loaded below
 open_video = None  # lazy loaded below
 
@@ -140,7 +140,7 @@ def track_shot(sceneFaces, numFailedDet=8, minTrack=10):
             frameI = np.arange(frameNum[0], frameNum[-1] + 1)
             bboxesI = []
             for ij in range(0, 4):
-                interpfn = interp1d(frameNum, bboxes[:, ij])
+                interpfn = scipy_interpolate.interp1d(frameNum, bboxes[:, ij])
                 bboxesI.append(interpfn(frameI))
             bboxesI = np.stack(bboxesI, axis=1)
             if max(np.mean(bboxesI[:, 2] - bboxesI[:, 0]), np.mean(bboxesI[:, 3] - bboxesI[:, 1])) > 1:

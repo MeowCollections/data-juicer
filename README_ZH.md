@@ -85,6 +85,15 @@ for s in res_ds:
 
 ## 📰 动态
 <details open>
+<summary>[2026-07-17] Release v1.5.4: <b>HumanVBench 视频算子；批内阶段算子融合；健壮性修复</b></summary>
+
+* 🧑‍🤝‍🧑 新算子 — 新增 9 个以人为中心的视频理解算子（人物轨迹提取、活跃说话人检测、音频 ASR、语音情绪与年龄/性别检测、人脸人口统计与属性/情绪描述、人脸占比过滤），用于构建 HumanVBench (CVPR'26) 风格的处理流水线。
+* ⚡ 批内阶段算子融合 — 新增 `FusedSequentialBatchOp`，在一个 batch 内融合连续算子，减少算子间开销，加速顺序处理。
+* 🔧 健壮性与安装修复 — 修复 Ray 去重算子的共享状态处理；修复 Ray checkpoint writer 的相对路径问题；使 `clean_html_mapper` 对 null 文本值更健壮；`ColumnWiseAnalysis` 支持处理布尔型统计列；并通过为 `decord`/`torchcodec` 添加精确的平台标记解锁 ARM64 (aarch64) 平台的安装。
+* 🧪 测试覆盖与清理 — 扩展工具函数与模型处理相关的测试，并进行若干代码清理。
+</details>
+
+<details open>
 <summary>[2026-06-26] Release v1.5.3: <b>VLA 算子升级；Ray 重分区管道；可扩展性与健壮性</b></summary>
 
 * 🤖 VLA 算子升级 — 新增/重命名 10+ 个 VLA 算子（DeepCalib/DroidCalib/MoGe 相机标定、原子动作分割、手部动作计算与运动平滑、片段重组、轨迹叠加、LeRobot 导出），并提供完整的 VLA pipeline 示例。
@@ -94,7 +103,7 @@ for s in res_ds:
 * 🐳 稳定性与健壮性修复 — JSONStreamDatasource 跨批次 schema 统一、OP 环境版本解析、PartitionedRayExecutor FUSE 安全 rmtree、废弃模型名更新、num_proc 处理修复等。
 </details>
 
-<details open>
+<details>
 <summary>[2026-05-29] Release v1.5.2: <b>语义化 LLM 算子；跨文档行级去重；更轻量的依赖</b></summary>
 
 - 🧹 新增去重算子：DocumentLineDeduplicator 支持跨文档的行级去重，依据全局文档频率识别并移除模板文本、版权声明、导航栏等样板行。

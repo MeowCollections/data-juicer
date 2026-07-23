@@ -29,6 +29,16 @@ This is the operator contribution page for the paper: **HumanVBench: Probing Hum
 | `video_captioning_face_attribute_emotion_mapper` | mapper | Face attribute/emotion captioning via VideoLLaMA3. |
 | `video_active_speaker_detect_mapper` | mapper | Active speaker detection via Light-ASD. |
 
+## Installation
+
+> **Note:** These OPs need third-party patches/models under `thirdparty/humanvbench_models/`, so a **source install** is required for now.
+
+```shell
+git clone https://github.com/datajuicer/data-juicer.git
+cd data-juicer
+pip install -e .
+```
+
 ## Quick Start
 
 Since HumanVBench operators involve modifications to external repositories, these adjusted repositories are stored in `thirdparty/humanvbench_models`.

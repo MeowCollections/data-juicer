@@ -4,7 +4,6 @@ import pickle
 
 import numpy as np
 import tqdm
-from scipy import signal
 
 from data_juicer.utils.ASD_mapper_utils import (
     detect_and_mark_anomalies,
@@ -24,6 +23,7 @@ from ..base_op import OPERATORS, Mapper
 from ..op_fusion import LOADED_VIDEOS
 
 torch = LazyLoader("torch")
+signal = LazyLoader("scipy.signal", "scipy")
 
 OP_NAME = "video_human_tracks_extraction_mapper"
 

@@ -87,6 +87,15 @@ for s in res_ds:
 ## 📰 News
 
 <details open>
+<summary>[2026-07-17] Release v1.5.4: <b>HumanVBench Video OPs; Batch-local Stage Fusion; Robustness Fixes</b></summary>
+
+* 🧑‍🤝‍🧑 *New OPs* — Added 9 human-centric video understanding operators (human track extraction, active-speaker detection, audio ASR, speech emotion & age/gender detection, face demographic & attribute/emotion captioning, face-ratio filtering) for building HumanVBench (CVPR'26)-style pipelines.
+* ⚡ *Batch-local Stage Fusion* — New `FusedSequentialBatchOp` fuses consecutive OPs within a batch to cut inter-op overhead and speed up sequential processing.
+* 🔧 *Robustness & Install Fixes* — Fixed Ray deduplicator shared-state handling, resolved a relative-path issue in the Ray checkpoint writer, made `clean_html_mapper` robust to null text values, handled boolean stat columns in `ColumnWiseAnalysis`, and unblocked ARM64 (aarch64) installation via precise `decord`/`torchcodec` platform markers.
+* 🧪 *Test Coverage & Cleanup* — Expanded tests for utility functions and model handling, plus assorted code cleanup.
+</details>
+
+<details open>
 <summary>[2026-06-26] Release v1.5.3: <b>VLA Ops Enhancements; Ray Repartition Pipeline; Scalability & Robustness</b></summary>
 
 * 🤖 *VLA Ops Enhancements* — Expanded embodied-AI processing with 10+ new/renamed VLA operators (camera calibration via DeepCalib/DroidCalib/MoGe, atomic action segmentation, hand action computation & motion smoothing, clip reassembly, trajectory overlay, LeRobot export) and a complete VLA pipeline demo.
@@ -96,7 +105,7 @@ for s in res_ds:
 * 🐳 *Stability & Robustness Fixes* — JSONStreamDatasource schema unification, OP env version resolution, FUSE-safe rmtree for PartitionedRayExecutor, deprecated model name updates, and num_proc handling fixes.
 </details>
 
-<details open>
+<details>
 <summary>[2026-05-29] Release v1.5.2: <b>Semantic LLM OPs, Cross-doc Line Dedup & Leaner Dependencies</b></summary>
 
 * 🧹 *New Deduplicator* — Added `DocumentLineDeduplicator` for cross-document line-level dedup, removing boilerplate lines (templates, copyright notices, navigation bars) by global document frequency.
