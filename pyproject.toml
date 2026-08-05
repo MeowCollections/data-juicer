@@ -18,7 +18,7 @@ classifiers = [
 # Core dependencies
 dependencies = [
     "datasets>=4.7.0", # core data loading
-    "fsspec==2023.5.0", # file system operations
+    "fsspec>=2026.1.0", # file system operations; >=2026.1.0 for ArrowFile.size compat with pyarrow>=17
     "pandas", # data manipulation
     "numpy>=1.26.4", # numerical operations
     "loguru", # logging

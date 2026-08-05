@@ -168,6 +168,11 @@ class RayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
         logger.info("Preparing process operators...")
         ops = load_ops(self.cfg.process, self.op_env_manager)
 
+        if not ops:
+            logger.warning(
+                "No process operators configured. " "The dataset will be exported as-is without any processing."
+            )
+
         # Initialize DAG execution planning (pass ops to avoid redundant loading)
         self._initialize_dag_execution(self.cfg, ops=ops)
 
