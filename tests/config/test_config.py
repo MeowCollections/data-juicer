@@ -500,18 +500,12 @@ class ConfigTest(DataJuicerTestCaseBase):
             with self.assertRaises(NotImplementedError):
                 init_configs(args=[
                     '--auto',
-                ], which_entry="NoneAnalyzerClass")
+                ], allow_auto=False)
 
             # in analyzer
-            from data_juicer.core import Analyzer
-            cfg = init_configs(args=[
-                '--config', test_yaml_path,
-            ])
-            analyzer = Analyzer(cfg)
-
             cfg_auto = init_configs(args=[
                 '--auto',
-            ], which_entry=analyzer)
+            ], allow_auto=True)
             self.assertTrue(cfg_auto.auto)
             self.assertGreater(len(cfg_auto.process), 0)
 

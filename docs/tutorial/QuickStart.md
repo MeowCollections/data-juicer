@@ -106,6 +106,12 @@ export ANALYZER_FONT="Heiti TC"  # Use Heiti for Chinese characters. And it's th
 python tools/analyze_data.py --config demos/analyze_simple/analyzer.yaml
 ```
 
+- **Distributed Analysis with Ray:** `dj-analyze` also supports Ray mode for large-scale distributed analysis. Set `executor_type: ray` in your config file, and the analyzer will automatically use `RayAnalyzer`, which computes overall statistics (count/mean/std/min/max) via Ray native aggregation without pandas materialization. Note that RayAnalyzer does not produce per-column distribution charts or correlation analysis. More details can be found in the doc for [distributed processing](../Distributed.md).
+
+```shell
+dj-analyze --config demos/analyze_simple/ray_analyzer.yaml
+```
+
 ## Data Visualization
 
 - Run `app.py` tool to visualize your dataset in your browser.

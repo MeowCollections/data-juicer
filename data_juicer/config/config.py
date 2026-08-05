@@ -810,7 +810,7 @@ def build_base_parser() -> ArgumentParser:
     return parser
 
 
-def init_configs(args: Optional[List[str]] = None, which_entry: object = None, load_configs_only=False):
+def init_configs(args: Optional[List[str]] = None, allow_auto: bool = False, load_configs_only=False, **kwargs):
     """
     initialize the jsonargparse parser and parse configs from one of:
         1. POSIX-style commands line args;
@@ -819,11 +819,27 @@ def init_configs(args: Optional[List[str]] = None, which_entry: object = None, l
         4. hard-coded defaults
 
     :param args: list of params, e.g., ['--config', 'cfg.yaml'], default None.
-    :param which_entry: which entry to init configs (executor/analyzer)
+    :param allow_auto: whether --auto is allowed (only True for analyzer entries)
     :param load_configs_only: whether to load the configs only, not including backing up config files, display them, and
         setting up logger.
     :return: a global cfg object used by the DefaultExecutor or Analyzer
     """
+    # Backwards compatibility: accept deprecated `which_entry` keyword
+    if "which_entry" in kwargs:
+        import warnings
+
+        warnings.warn(
+            "The 'which_entry' parameter is deprecated. " "Use 'allow_auto=True' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        which_entry = kwargs.pop("which_entry")
+        if not allow_auto and which_entry is not None:
+            from data_juicer.core.analyzer import Analyzer
+
+            allow_auto = isinstance(which_entry, Analyzer)
+    if kwargs:
+        raise TypeError(f"init_configs() got unexpected keyword arguments: " f"{list(kwargs.keys())}")
     # Optional: stdlib json for HF datasets JSONL (avoids ujson "Value is too big!")
     from data_juicer.utils.datasets_json_compat import (
         apply_stdlib_json_patch_for_datasets,
@@ -888,9 +904,7 @@ def init_configs(args: Optional[List[str]] = None, which_entry: object = None, l
                     load_custom_operators(cfg.custom_operator_paths)
 
                 # check the entry
-                from data_juicer.core.analyzer import Analyzer
-
-                if not isinstance(which_entry, Analyzer) and cfg.auto:
+                if cfg.auto and not allow_auto:
                     err_msg = "--auto argument can only be used for analyzer!"
                     logger.error(err_msg)
                     raise NotImplementedError(err_msg)

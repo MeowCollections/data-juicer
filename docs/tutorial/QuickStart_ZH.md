@@ -104,6 +104,12 @@ export ANALYZER_FONT="Heiti TC"  # 使用黑体来支持中文字符，这也是
 python tools/analyze_data.py --config demos/analyze_simple/analyzer.yaml
 ```
 
+- **基于 Ray 的分布式分析：** `dj-analyze` 同样支持 Ray 模式进行大规模分布式数据分析。在配置文件中设置 `executor_type: ray`，分析器将自动使用 `RayAnalyzer`，通过 Ray 原生聚合算子计算总体统计信息（count/mean/std/min/max），无需 pandas 物化。注意 RayAnalyzer 不会产出逐列分布图表或相关性分析。更多细节请参考[分布式处理文档](../Distributed_ZH.md)。
+
+```shell
+dj-analyze --config demos/analyze_simple/ray_analyzer.yaml
+```
+
 ## 数据可视化
 
 * 运行 `app.py` 来在浏览器中可视化您的数据集。
