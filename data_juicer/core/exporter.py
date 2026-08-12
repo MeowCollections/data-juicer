@@ -1,12 +1,14 @@
 import json
 import os
 from multiprocessing import Pool
+from urllib.parse import urlparse
 
 from datasets import Dataset as HFDataset
 from loguru import logger
 
 from data_juicer.utils.constant import Fields, HashKeys
 from data_juicer.utils.file_utils import Sizes, byte_size_to_size_str
+from data_juicer.utils.fs_utils import create_filesystem_for_path
 
 
 class Exporter:
@@ -74,7 +76,7 @@ class Exporter:
         self.encrypt_before_export = encrypt_before_export
         self._fernet = None
         if encrypt_before_export:
-            if export_path.startswith("s3://") or export_path.startswith("hdfs://"):
+            if urlparse(export_path).scheme.lower() in ("s3", "hdfs"):
                 logger.warning(
                     "encrypt_before_export is True but export_path is a remote "
                     f"path ({export_path}). Local-file encryption is skipped. "
@@ -88,7 +90,8 @@ class Exporter:
 
         # Check if export_path is S3 and create storage_options if needed
         self.storage_options = None
-        if export_path.startswith("s3://"):
+        export_scheme = urlparse(export_path).scheme.lower()
+        if export_scheme == "s3":
             # Extract AWS credentials from kwargs (if provided)
             s3_config = {}
             if "aws_access_key_id" in kwargs:
@@ -140,16 +143,10 @@ class Exporter:
         # fsspec ArrowFSWrapper so that dataset.to_json/parquet(path)
         # routes through fsspec → Arrow, unifying HDFS with the same
         # storage_options path that S3 already uses.
-        if export_path.startswith("hdfs://"):
+        if export_scheme == "hdfs":
             from fsspec.implementations.arrow import ArrowFSWrapper
 
-            from data_juicer.utils.hdfs_utils import create_pyarrow_hdfs_filesystem
-
-            hdfs_config = {"path": export_path}
-            for field in ("hdfs_host", "hdfs_port", "hdfs_user", "hdfs_kerb_ticket", "hdfs_extra_conf"):
-                if field in kwargs:
-                    hdfs_config[field] = kwargs.pop(field)
-            hdfs_pyarrow_fs = create_pyarrow_hdfs_filesystem(hdfs_config)
+            hdfs_pyarrow_fs, kwargs = create_filesystem_for_path(export_path, kwargs)
             wrapped = ArrowFSWrapper(hdfs_pyarrow_fs)
             self.storage_options = {"filesystem": wrapped}
             logger.info(f"Detected HDFS export path: {export_path}. " f"ArrowFSWrapper storage_options configured.")
@@ -299,10 +296,11 @@ class Exporter:
 
                 # regard the export path as a directory and set file names for
                 # each shard
-                if self.export_path.startswith("s3://"):
+                if urlparse(self.export_path).scheme.lower() == "s3":
                     # For S3 paths, construct S3 paths for each shard
-                    # Extract bucket and prefix from S3 path
-                    s3_path_parts = self.export_path.replace("s3://", "").split("/", 1)
+                    # Extract bucket and prefix from S3 path (strip the
+                    # scheme case-insensitively).
+                    s3_path_parts = self.export_path.split("://", 1)[1].split("/", 1)
                     bucket = s3_path_parts[0]
                     prefix = s3_path_parts[1] if len(s3_path_parts) > 1 else ""
                     # Remove extension from prefix
@@ -315,10 +313,10 @@ class Exporter:
                         f"s3://{bucket}/{prefix_base}-{num_fmt % index}-of-{num_fmt % num_shards}.{self.suffix}"
                         for index in range(num_shards)
                     ]
-                elif self.export_path.startswith("hdfs://"):
+                elif urlparse(self.export_path).scheme.lower() == "hdfs":
                     # For HDFS paths, construct HDFS URIs for each shard
-                    # (same pattern as S3)
-                    hdfs_path_parts = self.export_path.replace("hdfs://", "").split("/", 1)
+                    # (same pattern as S3; strip the scheme case-insensitively).
+                    hdfs_path_parts = self.export_path.split("://", 1)[1].split("/", 1)
                     authority = hdfs_path_parts[0]
                     prefix = hdfs_path_parts[1] if len(hdfs_path_parts) > 1 else ""
                     # Remove extension from prefix

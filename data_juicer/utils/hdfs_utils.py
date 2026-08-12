@@ -22,6 +22,15 @@ if TYPE_CHECKING:
     import pyarrow.fs
 
 
+ACCEPTED_CONFIG_KEYS = (
+    "hdfs_host",
+    "hdfs_port",
+    "hdfs_user",
+    "hdfs_kerb_ticket",
+    "hdfs_extra_conf",
+)
+
+
 def parse_hdfs_path(path: str) -> Tuple[Optional[str], Optional[int]]:
     """
     Parse the host and port from an HDFS URI.
@@ -124,11 +133,14 @@ def validate_hdfs_path(path: str) -> None:
     """
     Validate that a path is a valid HDFS path.
 
+    The scheme check is case-insensitive ('hdfs://', 'HDFS://', ... are all
+    accepted), while single-slash forms like 'hdfs:/user' are rejected.
+
     Args:
         path: Path to validate.
 
     Raises:
         ValueError: If path doesn't start with 'hdfs://'.
     """
-    if not path.startswith("hdfs://"):
+    if not path.lower().startswith("hdfs://"):
         raise ValueError(f"HDFS path must start with 'hdfs://', got: {path}")
