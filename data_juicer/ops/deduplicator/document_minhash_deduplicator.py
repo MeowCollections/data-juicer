@@ -282,6 +282,9 @@ class DocumentMinhashDeduplicator(Deduplicator):
         sample[HashKeys.minhash] = [bytes(hash_values[start:end].byteswap().data) for start, end in self.hash_ranges]
         return sample
 
+    def _reset_hash_tables(self):
+        self.hash_tables = [defaultdict(set) for _ in range(self.num_bands)]
+
     def process(self, dataset, show_num=0):
         """
         For doc-level, dataset --> dataset.
@@ -291,6 +294,8 @@ class DocumentMinhashDeduplicator(Deduplicator):
             open.
         :return: deduplicated dataset and the sampled duplicate pairs.
         """
+        self._reset_hash_tables()
+
         # no need to deduplicate because too few samples
         if len(dataset) <= 1:
             return dataset, {}
@@ -381,6 +386,8 @@ class DocumentMinhashDeduplicatorWithUid(DocumentMinhashDeduplicator):
             open.
         :return: deduplicated dataset and the sampled duplicate pairs.
         """
+        self._reset_hash_tables()
+
         # no need to deduplicate because too few samples
         if len(dataset) <= 1:
             return dataset, {}

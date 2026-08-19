@@ -975,5 +975,83 @@ class DocumentMinhashDeduplicatorTest(DataJuicerTestCaseBase):
         self._run_minhash_dedup(dataset, tgt_list, op)
 
 
+class DocumentMinhashDeduplicatorRepeatedCallTest(DataJuicerTestCaseBase):
+    """Regression test: process() must not leak state between calls."""
+
+    def test_repeated_process_no_pollution(self):
+        """Calling process() twice on the same operator with disjoint datasets
+        must produce identical results to calling it once on each dataset
+        independently."""
+        from data_juicer.ops.deduplicator.document_minhash_deduplicator import (
+            DocumentMinhashDeduplicator,
+        )
+
+        # Two completely unrelated datasets
+        ds_a = Dataset.from_list([
+            {'text': 'The quick brown fox jumps over the lazy dog'},
+            {'text': 'A completely unique sentence about quantum physics'},
+        ])
+        ds_b = Dataset.from_list([
+            {'text': 'Pack my box with five dozen liquor jugs'},
+            {'text': 'How vexingly quick daft zebras jump'},
+        ])
+
+        op = DocumentMinhashDeduplicator(
+            tokenization='space',
+            num_permutations=128,
+            jaccard_threshold=0.7,
+        )
+
+        # First call
+        ds_a_hashed = ds_a.map(op.compute_hash)
+        result_a, _ = op.process(ds_a_hashed)
+
+        # Second call on same operator instance — must not be affected by first
+        ds_b_hashed = ds_b.map(op.compute_hash)
+        result_b, _ = op.process(ds_b_hashed)
+
+        # Neither dataset has duplicates, so both should retain all samples
+        self.assertEqual(len(result_a), 2,
+                         "First process() call should keep both distinct samples")
+        self.assertEqual(len(result_b), 2,
+                         "Second process() call should not be polluted by the first")
+
+    def test_repeated_process_with_uid_no_pollution(self):
+        """Same test for the UID-based variant."""
+        from data_juicer.ops.deduplicator.document_minhash_deduplicator import (
+            DocumentMinhashDeduplicatorWithUid,
+        )
+        from data_juicer.utils.constant import HashKeys
+
+        ds_a = Dataset.from_list([
+            {'text': 'The quick brown fox jumps over the lazy dog',
+             HashKeys.uid: 0},
+            {'text': 'A completely unique sentence about quantum physics',
+             HashKeys.uid: 1},
+        ])
+        ds_b = Dataset.from_list([
+            {'text': 'Pack my box with five dozen liquor jugs',
+             HashKeys.uid: 0},
+            {'text': 'How vexingly quick daft zebras jump',
+             HashKeys.uid: 1},
+        ])
+
+        op = DocumentMinhashDeduplicatorWithUid(
+            tokenization='space',
+            num_permutations=128,
+            jaccard_threshold=0.7,
+        )
+
+        ds_a_hashed = ds_a.map(op.compute_hash)
+        result_a, _ = op.process(ds_a_hashed)
+
+        ds_b_hashed = ds_b.map(op.compute_hash)
+        result_b, _ = op.process(ds_b_hashed)
+
+        self.assertEqual(len(result_a), 2)
+        self.assertEqual(len(result_b), 2,
+                         "UID-based dedup must not carry state between process() calls")
+
+
 if __name__ == '__main__':
     unittest.main()
