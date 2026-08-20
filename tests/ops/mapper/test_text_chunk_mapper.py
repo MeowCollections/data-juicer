@@ -380,5 +380,31 @@ class TextChunkMapperTest(DataJuicerTestCaseBase):
         self._run_helper(op, ds_list, tgt_list)
 
 
+    def test_recursive_chunk_no_empty_fragments(self):
+        """Regression: recursively_chunk must not produce empty strings when
+        split_pattern matches at the start of a chunk boundary."""
+        ds_list = [
+            {'text': '\n\nHello world is a long sentence\n\nFoo bar baz qux'},
+        ]
+        op = TextChunkMapper(max_len=20, split_pattern='\n\n')
+        dataset = Dataset.from_list(ds_list)
+        dataset = dataset.map(op.process, batch_size=1)
+        texts = [d['text'] for d in dataset]
+        for t in texts:
+            self.assertTrue(t.strip(), f"Got empty/whitespace fragment: {repr(t)}")
+
+    def test_recursive_chunk_consecutive_delimiters(self):
+        """Consecutive delimiters should not produce empty fragments."""
+        ds_list = [
+            {'text': 'aaa\n\n\n\nbbb'},
+        ]
+        op = TextChunkMapper(max_len=20, split_pattern='\n\n')
+        dataset = Dataset.from_list(ds_list)
+        dataset = dataset.map(op.process, batch_size=1)
+        texts = [d['text'] for d in dataset]
+        for t in texts:
+            self.assertTrue(t.strip(), f"Got empty/whitespace fragment: {repr(t)}")
+
+
 if __name__ == '__main__':
     unittest.main()

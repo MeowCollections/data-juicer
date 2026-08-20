@@ -105,7 +105,8 @@ class TextChunkMapper(Mapper):
             cur_text = sub_text[: last_match.start()]
             left_text = text[last_match.end() :]
 
-        return [cur_text] + self.recursively_chunk(left_text)
+        chunks = [cur_text] if cur_text.strip() else []
+        return chunks + self.recursively_chunk(left_text)
 
     def get_text_chunks(self, text, rank=None):
         if self.split_pattern is not None and self.max_len is None:
