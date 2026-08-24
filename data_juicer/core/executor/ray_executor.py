@@ -48,7 +48,7 @@ class RayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
 
     Run Data-Juicer data processing in a distributed cluster.
 
-        1. Support Filter, Mapper and Exact Deduplicator operators for now.
+        1. Only supports operators with _supported_exec_modes containing 'ray'.
         2. Only support loading `.json` files.
         3. Advanced functions, such as checkpoint, are not supported.
 
@@ -150,6 +150,12 @@ class RayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
         :param skip_return: skip return for API called.
         :return: processed dataset.
         """
+        # Preflight stage 1: validate config before instantiation
+        if getattr(self.cfg, "strict_preflight", True):
+            from data_juicer.core.preflight import pre_instantiation_check
+
+            pre_instantiation_check(self.cfg.process)
+
         # LLM data contains very large single json objects (lines). PyArrow's default block_size
         # for open_json is only 1MB. We increase it massively (e.g. 256MB) to avoid the
         # 'straddling object straddles two block boundaries' ArrowInvalid error.
@@ -168,6 +174,17 @@ class RayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
         # 2. extract processes
         logger.info("Preparing process operators...")
         ops = load_ops(self.cfg.process, self.op_env_manager)
+
+        # Preflight stage 2: validate ops against dataset schema and environment
+        if getattr(self.cfg, "strict_preflight", True):
+            from data_juicer.core.preflight import post_instantiation_check
+
+            try:
+                dataset_schema = dataset.schema()
+            except (ValueError, AttributeError):
+                dataset_schema = None
+            if dataset_schema:
+                post_instantiation_check(ops, dataset_schema, self.cfg)
 
         if not ops:
             logger.warning(

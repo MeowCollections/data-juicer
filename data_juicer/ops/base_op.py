@@ -296,10 +296,53 @@ class OP(metaclass=OPMetaClass):
     # whether this operator is a batched operator
     _batched_op = False
 
+    # executor modes this operator supports: "default", "ray", "ray_partitioned"
+    _supported_exec_modes = ("default",)
+
     # extra requirements for this operator. Should be:
     #   1. a list of packages
     #   2. a string of the path to the requirements.txt file
     _requirements = None
+
+    # Centralized declaration of all parameters accepted by the OP base class.
+    # Format: {param_name: (type_or_None, default_value)}
+    # This serves as the authoritative source for:
+    #   - preflight parameter name validation
+    #   - preflight parameter type checking
+    #   - documentation generation
+    _BASE_PARAMS = {
+        # Data keys
+        "text_key": (str, "text"),
+        "image_key": (str, "images"),
+        "audio_key": (str, "audios"),
+        "video_key": (str, "videos"),
+        "image_bytes_key": (str, "image_bytes"),
+        "system_key": (str, "system"),
+        "instruction_key": (str, "instruction"),
+        "prompt_key": (str, "prompt"),
+        "query_key": (str, "query"),
+        "response_key": (str, "response"),
+        "history_key": (str, "history"),
+        "index_key": (None, None),
+        "work_dir": (None, None),
+        # Behavior control
+        "skip_op_error": (bool, False),
+        "auto_op_parallelism": (bool, True),
+        "batch_mode": (None, None),
+        "accelerator": (None, None),
+        "batch_size": (int, DEFAULT_BATCH_SIZE),
+        "num_proc": (None, None),
+        "turbo": (bool, False),
+        # Resource declarations
+        "cpu_required": (None, None),
+        "gpu_required": (None, None),
+        "mem_required": (None, None),
+        "num_cpus": (None, None),
+        "num_gpus": (None, None),
+        "memory": (None, None),
+        "runtime_env": (None, None),
+        "ray_execution_mode": (None, None),
+    }
 
     # Attributes excluded from cache fingerprinting only (not from
     # pickling/dill serialization).  These do not affect data
@@ -604,6 +647,8 @@ class OP(metaclass=OPMetaClass):
 
 
 class Mapper(OP):
+    _supported_exec_modes = ("default", "ray", "ray_partitioned")
+
     def __init__(self, *args, **kwargs):
         """
         Base class that conducts data editing.
@@ -715,6 +760,16 @@ class Mapper(OP):
 
 
 class Filter(OP):
+    _supported_exec_modes = ("default", "ray", "ray_partitioned")
+
+    _BASE_PARAMS = {
+        **OP._BASE_PARAMS,
+        "stats_export_path": (None, None),
+        "min_closed_interval": (bool, True),
+        "max_closed_interval": (bool, True),
+        "reversed_range": (bool, False),
+    }
+
     def __init__(self, *args, **kwargs):
         """
         Base class that removes specific info.
@@ -865,6 +920,8 @@ class Filter(OP):
 
 
 class Deduplicator(OP):
+    _supported_exec_modes = ("default", "ray", "ray_partitioned")
+
     def __init__(self, *args, **kwargs):
         """
         Base class that conducts deduplication.
@@ -1082,6 +1139,8 @@ class Aggregator(OP):
 
 class Pipeline(OP):
     """Base class for Operators that represent a data processing pipeline."""
+
+    _supported_exec_modes = ("default", "ray", "ray_partitioned")
 
     def __init__(self, *args, **kwargs):
         """

@@ -640,6 +640,13 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
         # Note: Config validation is handled in _resume_job() if resuming
 
         # Load the full dataset using a single DatasetBuilder
+        # Preflight stage 1: validate config before any expensive I/O
+        if getattr(self.cfg, "strict_preflight", True):
+            from data_juicer.core.preflight import pre_instantiation_check
+
+            pre_instantiation_check(self.cfg.process)
+
+        # Load the full dataset using single DatasetBuilder
         logger.info("Loading dataset with single DatasetBuilder...")
 
         # Ray Dataset captures a copy of DataContext when it is created. This
@@ -648,11 +655,18 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
         self._enable_deterministic_execution()
         override_num_blocks = getattr(self.cfg, "override_num_blocks", None)
         dataset = self.datasetbuilder.load_dataset(num_proc=load_data_np, override_num_blocks=override_num_blocks)
-        columns = dataset.schema().columns
+        dataset_schema = dataset.schema()
+        columns = dataset_schema.columns
 
         # Prepare operations
         logger.info("Preparing operations...")
         ops = self._prepare_operators()
+
+        # Preflight stage 2: validate ops against dataset schema and environment
+        if getattr(self.cfg, "strict_preflight", True):
+            from data_juicer.core.preflight import post_instantiation_check
+
+            post_instantiation_check(ops, dataset_schema, self.cfg)
 
         # A resumed job must reuse the saved partition count before DAG
         # initialization. Auto mode can otherwise choose a different count if

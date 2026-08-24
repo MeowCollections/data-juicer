@@ -226,6 +226,12 @@ class RayDataset(DJDataset):
         if cached_columns is None:
             cached_columns = set(self.data.columns())
 
+        if "ray" not in op._supported_exec_modes:
+            raise NotImplementedError(
+                f"Operator '{op._name or type(op).__name__}' does not support "
+                f"Ray mode. Supported modes: {op._supported_exec_modes}"
+            )
+
         if op._name in TAGGING_OPS.modules and Fields.meta not in cached_columns:
 
             def process_batch_arrow(table: pyarrow.Table):
@@ -362,9 +368,6 @@ class RayDataset(DJDataset):
                             op.process = original_process
             elif isinstance(op, (Deduplicator, Pipeline)):
                 self.data = op.run(self.data)
-            else:
-                logger.error("Ray executor only support Filter, Mapper, Deduplicator and Pipeline OPs for now")
-                raise NotImplementedError
         except:  # noqa: E722
             logger.exception(f"An error occurred during Op [{op._name}].")
             raise

@@ -160,6 +160,13 @@ def build_base_parser() -> ArgumentParser:
         help='Type of executor, support "default", "ray", or "ray_partitioned".',
     )
     parser.add_argument(
+        "--strict_preflight",
+        type=bool,
+        default=True,
+        help="Whether to run preflight validation before pipeline execution. "
+        "Set to False to skip preflight checks (not recommended).",
+    )
+    parser.add_argument(
         "--dataset_path",
         type=str,
         default="",

@@ -149,6 +149,12 @@ class DefaultExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
         :param skip_return: skip return for API called.
         :return: processed dataset.
         """
+        # Preflight stage 1: validate config before instantiation
+        if getattr(self.cfg, "strict_preflight", True):
+            from data_juicer.core.preflight import pre_instantiation_check
+
+            pre_instantiation_check(self.cfg.process)
+
         # 1. format data
         if dataset is not None:
             logger.info(f"Using existing dataset {dataset}")
@@ -167,6 +173,16 @@ class DefaultExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin):
         # 2. extract processes and optimize their orders
         logger.info("Preparing process operators...")
         ops = load_ops(self.cfg.process)
+
+        # Preflight stage 2: validate ops against dataset schema and environment
+        if getattr(self.cfg, "strict_preflight", True):
+            from data_juicer.core.preflight import post_instantiation_check
+
+            if isinstance(dataset, NestedDataset) and hasattr(dataset, "features") and dataset.features:
+                from data_juicer.core.data.schema import Schema
+
+                schema = Schema.from_hf_features(dataset.features)
+                post_instantiation_check(ops, schema, self.cfg)
 
         if not ops:
             logger.warning(

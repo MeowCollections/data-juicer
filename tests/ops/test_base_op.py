@@ -1,3 +1,4 @@
+import inspect
 import unittest
 
 import numpy as np
@@ -779,6 +780,109 @@ class AggregatorRunTest(DataJuicerTestCaseBase):
         op = SimpleAgg()
         result = op.run(ds)
         self.assertEqual(result[Fields.batch_meta][0], {'existing': True})
+
+
+class TestBaseParamsSync(unittest.TestCase):
+    """
+    Reflection-based tests to ensure _BASE_PARAMS stays in sync with
+    actual kwargs usage in __init__ methods.
+    """
+
+    def _extract_kwargs_keys(self, cls):
+        """Extract all kwargs access keys from a class's __init__ source.
+
+        Matches: kwargs.get("key", ...), kwargs.pop("key", ...), kwargs["key"]
+        """
+        import ast
+        import textwrap
+
+        source = inspect.getsource(cls.__init__)
+        source = textwrap.dedent(source)
+        tree = ast.parse(source)
+
+        keys = set()
+        for node in ast.walk(tree):
+            # Match: kwargs.get("key", ...) or kwargs.pop("key", ...)
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in ("get", "pop")
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "kwargs"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                keys.add(node.args[0].value)
+            # Match: kwargs["key"]
+            elif (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "kwargs"
+                and isinstance(node.slice, ast.Constant)
+                and isinstance(node.slice.value, str)
+            ):
+                keys.add(node.slice.value)
+        return keys
+
+    def test_op_base_params_covers_all_kwargs_access(self):
+        """Every kwargs access key in OP.__init__ must appear in OP._BASE_PARAMS."""
+        kwargs_keys = self._extract_kwargs_keys(OP)
+        base_params_keys = set(OP._BASE_PARAMS.keys())
+
+        missing = kwargs_keys - base_params_keys
+        self.assertEqual(
+            missing,
+            set(),
+            f"OP.__init__ uses kwargs for keys not in _BASE_PARAMS: {sorted(missing)}",
+        )
+
+    def test_filter_base_params_covers_all_kwargs_access(self):
+        """Every kwargs access key in Filter.__init__ must appear in Filter._BASE_PARAMS."""
+        kwargs_keys = self._extract_kwargs_keys(Filter)
+        base_params_keys = set(Filter._BASE_PARAMS.keys())
+
+        missing = kwargs_keys - base_params_keys
+        self.assertEqual(
+            missing,
+            set(),
+            f"Filter.__init__ uses kwargs for keys not in _BASE_PARAMS: {sorted(missing)}",
+        )
+
+    def test_op_base_params_no_extra_keys(self):
+        """_BASE_PARAMS should not have stale keys that aren't actually used."""
+        kwargs_keys = self._extract_kwargs_keys(OP)
+        base_params_keys = set(OP._BASE_PARAMS.keys())
+
+        extra = base_params_keys - kwargs_keys
+        if extra:
+            import warnings
+
+            warnings.warn(
+                f"OP._BASE_PARAMS has keys not found in kwargs access: {sorted(extra)}. "
+                f"Verify these are intentional."
+            )
+
+    def test_all_op_subclasses_declare_supported_exec_modes(self):
+        """
+        Every direct OP subclass must have _supported_exec_modes defined
+        and it must be a non-empty tuple of valid mode strings.
+        """
+        valid_modes = {"default", "ray", "ray_partitioned"}
+        for klass in OP.__subclasses__():
+            self.assertTrue(
+                hasattr(klass, "_supported_exec_modes"),
+                f"{klass.__name__} missing _supported_exec_modes",
+            )
+            modes = klass._supported_exec_modes
+            self.assertIsInstance(modes, tuple, f"{klass.__name__}._supported_exec_modes must be a tuple")
+            self.assertTrue(len(modes) > 0, f"{klass.__name__}._supported_exec_modes is empty")
+            for m in modes:
+                self.assertIn(
+                    m,
+                    valid_modes,
+                    f"{klass.__name__}._supported_exec_modes contains invalid mode '{m}'",
+                )
 
 
 if __name__ == '__main__':
