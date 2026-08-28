@@ -502,5 +502,31 @@ class CoreExporterFileTest(DataJuicerTestCaseBase):
         self.assertTrue(any(name.endswith(".jsonl") for name in shard_files))
 
 
+class ExporterNoSuffixTest(DataJuicerTestCaseBase):
+    """Regression test: export_path without extension should give clear error."""
+
+    def test_no_suffix_raises_valueerror(self):
+        with self.assertRaises(ValueError) as ctx:
+            Exporter(export_path='s3://bucket/data/result', num_proc=1)
+        self.assertIn('no file extension', str(ctx.exception))
+
+    def test_no_suffix_local_path_raises_valueerror(self):
+        with self.assertRaises(ValueError) as ctx:
+            Exporter(export_path='/tmp/output/dataset', num_proc=1)
+        self.assertIn('no file extension', str(ctx.exception))
+
+    def test_valid_suffix_still_works(self):
+        exp = Exporter(export_path='/tmp/output/data.jsonl', num_proc=1)
+        self.assertEqual(exp.suffix, 'jsonl')
+
+    def test_explicit_export_type_bypasses_suffix(self):
+        exp = Exporter(
+            export_path='s3://bucket/data/result',
+            export_type='jsonl',
+            num_proc=1,
+        )
+        self.assertEqual(exp.suffix, 'jsonl')
+
+
 if __name__ == '__main__':
     unittest.main()

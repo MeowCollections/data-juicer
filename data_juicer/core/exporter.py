@@ -179,7 +179,15 @@ class Exporter:
         :param export_path: the path to export datasets.
         :return: the suffix of export_path.
         """
-        suffix = export_path.split(".")[-1].lower()
+        parts = export_path.rsplit(".", 1)
+        if len(parts) < 2 or "/" in parts[-1]:
+            raise ValueError(
+                f"Cannot determine file format from export_path "
+                f"[{export_path}] because it has no file extension. "
+                f"Please add a suffix (e.g. .jsonl, .json, .parquet) "
+                f"or specify export_type explicitly."
+            )
+        suffix = parts[-1].lower()
         return suffix
 
     @staticmethod
