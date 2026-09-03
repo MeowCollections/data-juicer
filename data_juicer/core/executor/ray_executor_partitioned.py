@@ -342,8 +342,7 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
         mode = ConfigAccessor.get(partition_cfg, "mode", "auto")
         num_of_partitions = ConfigAccessor.get(partition_cfg, "num_of_partitions", 4)
         max_concurrent_partitions = ConfigAccessor.get(partition_cfg, "max_concurrent_partitions", "auto")
-        partition_size = ConfigAccessor.get(partition_cfg, "size", 5000)
-        max_size_mb = ConfigAccessor.get(partition_cfg, "max_size_mb", 64)
+        partition_size = ConfigAccessor.get(partition_cfg, "size", None)
 
         # Fallback to legacy configuration if partition config is not available
         # or if legacy num_partitions is explicitly set
@@ -387,17 +386,49 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
         self.partition_mode = mode
         self.num_partitions = num_of_partitions
         self.max_concurrent_partitions = max_concurrent_partitions
-        self.partition_size = partition_size
-        self.max_size_mb = max_size_mb
+        self.partition_size_cfg = partition_size
 
         if mode == "manual":
-            logger.info(f"Manual partition mode: using {self.num_partitions} partitions")
+            if self.partition_size_cfg is None:
+                logger.info(f"Manual partition mode: using {self.num_partitions} partitions")
+            else:
+                logger.info(
+                    f"Manual partition mode: targeting {self.partition_size_cfg} samples per partition; "
+                    "the partition count will be derived after loading the dataset"
+                )
         else:  # auto mode
-            logger.info(f"Auto partition mode: will determine optimal partitioning based on data characteristics")
-            logger.info(f"Fallback partition size: {self.partition_size} samples, max {self.max_size_mb} MB")
+            logger.info("Auto partition mode: will determine optimal partitioning based on data characteristics")
+            if self.partition_size_cfg is not None:
+                logger.info(f"Optimizer fallback: targeting {self.partition_size_cfg} samples per partition")
+
+    @staticmethod
+    def _partition_count_from_size(dataset, partition_size: int) -> int:
+        """Derive the nearest partition count for a samples-per-partition target."""
+        if partition_size <= 0:
+            raise ValueError(f"partition_size must be positive, got {partition_size}")
+
+        if hasattr(dataset, "count"):
+            try:
+                total_samples = dataset.count()
+            except TypeError:
+                total_samples = len(dataset) if hasattr(dataset, "__len__") else None
+        elif hasattr(dataset, "__len__"):
+            total_samples = len(dataset)
+        else:
+            total_samples = None
+
+        if total_samples is None:
+            raise RuntimeError(
+                "Cannot determine dataset size for sample-based partitioning; "
+                "use partition.num_of_partitions instead."
+            )
+        if isinstance(total_samples, int) and isinstance(partition_size, int):
+            quotient, remainder = divmod(total_samples, partition_size)
+            return max(1, quotient + int(2 * remainder >= partition_size))
+        return max(1, int(total_samples / partition_size + 0.5))
 
     def _configure_auto_partitioning(self, dataset, ops):
-        """Configure partitioning using the partition size optimizer for auto mode."""
+        """Configure partitioning using the optimizer and an optional sample-count fallback."""
         recommendations = None
         try:
             from data_juicer.core.executor.partition_size_optimizer import (
@@ -405,59 +436,47 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
             )
 
             logger.info("🔧 Auto-configuring partition settings based on data characteristics...")
-
-            # Use the partition size optimizer to determine optimal settings
             recommendations = auto_configure_resources(self.cfg, dataset, ops)
         except ImportError as e:
             logger.warning(f"Could not import partition size optimizer: {e}")
-            logger.info("Falling back to manual partition configuration")
         except Exception as e:
             logger.warning(f"Auto partition configuration failed: {e}")
-            logger.info("Falling back to manual partition configuration")
 
+        recommended_size = None
+        recommended_workers = getattr(self.cfg, "np", 4)
         if recommendations is not None:
-            # Update partition configuration based on recommendations
-            recommended_size = ConfigAccessor.get(recommendations, "recommended_partition_size", self.partition_size)
-            recommended_max_size_mb = ConfigAccessor.get(recommendations, "recommended_max_size_mb", self.max_size_mb)
-            recommended_workers = ConfigAccessor.get(
-                recommendations, "recommended_worker_count", getattr(self.cfg, "np", 4)
-            )
+            recommended_size = ConfigAccessor.get(recommendations, "recommended_partition_size", None)
+            recommended_workers = ConfigAccessor.get(recommendations, "recommended_worker_count", recommended_workers)
 
-            # Calculate optimal number of partitions based on dataset size and recommended partition size
+        if not isinstance(recommended_size, (int, float)) or recommended_size <= 0:
+            recommended_size = self.partition_size_cfg
+            if recommended_size is not None:
+                logger.info(f"Using partition.size fallback: {recommended_size} samples per partition")
+
+        if recommended_size is not None:
             try:
-                if hasattr(dataset, "count"):
-                    total_samples = dataset.count()
-                elif hasattr(dataset, "__len__"):
-                    total_samples = len(dataset)
-                else:
-                    total_samples = 10000  # Fallback estimate
+                self.num_partitions = self._partition_count_from_size(dataset, recommended_size)
 
-                # Calculate number of partitions needed
-                self.num_partitions = max(1, int(total_samples / recommended_size))
-
-                # Cap partitions at 2x recommended workers (scales with cluster size)
+                # Cap auto-mode work submission at 2x the recommended workers.
                 max_partitions = max(32, recommended_workers * 2)
                 self.num_partitions = min(self.num_partitions, max_partitions)
 
-                logger.info(f"📊 Dataset analysis complete:")
-                logger.info(f"  Total samples: {total_samples}")
+                logger.info("📊 Dataset analysis complete:")
                 logger.info(f"  Recommended partition size: {recommended_size} samples")
                 logger.info(f"  Calculated partitions: {self.num_partitions}")
-                logger.info(f"  Recommended max size: {recommended_max_size_mb} MB")
                 logger.info(f"  Recommended workers: {recommended_workers}")
 
-                # Update worker count if not already set
                 if not hasattr(self.cfg, "np") or self.cfg.np is None:
                     self.cfg.np = recommended_workers
                     logger.info(f"  Updated worker count to: {recommended_workers}")
-
             except Exception as e:
-                logger.warning(f"Could not determine dataset size for partition calculation: {e}")
-                logger.info(f"Using fallback partition count: {self.num_partitions}")
+                logger.warning(f"Could not calculate partition count from the sample target: {e}")
+                logger.info(f"Using configured partition count: {self.num_partitions}")
+        else:
+            logger.info(f"Using configured partition count: {self.num_partitions}")
 
-        # Align the partition count with the real cluster topology. This
-        # also runs when the optimizer failed above, so the fallback
-        # count still benefits from cluster awareness.
+        # Align the partition count with the real cluster topology. This also
+        # applies to configured fallback counts when optimization is unavailable.
         try:
             self._apply_cluster_partition_bounds(ops)
         except Exception as e:
@@ -688,6 +707,16 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
             # a no-op once the value is no longer "auto".
             self._resolve_max_concurrent_partitions(ops)
             self._configure_auto_partitioning(dataset, ops)
+        elif self.partition_size_cfg is not None:
+            # split_at_indices() materializes the input too. Retaining that
+            # materialization here lets counting and splitting share one stable
+            # snapshot instead of executing the lazy input plan repeatedly.
+            dataset.data = dataset.data.materialize()
+            self.num_partitions = self._partition_count_from_size(dataset, self.partition_size_cfg)
+            logger.info(
+                f"Manual sample-based partitioning: {self.num_partitions} partitions "
+                f"for a target of {self.partition_size_cfg} samples each"
+            )
 
         # Record explicit actor-pool budgets and calculate automatic Ray
         # operator parallelism once on the driver. Every partition shares the
@@ -712,11 +741,12 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
             **dataset_info,
             "work_dir": self.work_dir,
             "executor_type": self.executor_type,
+            "partition": {"size": self.partition_size_cfg},
             "dag_node_count": len(self.pipeline_dag.nodes) if self.pipeline_dag else 0,
             "dag_edge_count": len(self.pipeline_dag.edges) if self.pipeline_dag else 0,
             "parallel_groups_count": len(self.pipeline_dag.parallel_groups) if self.pipeline_dag else 0,
         }
-        self.log_job_start(job_config, len(ops))
+        self.log_job_start(job_config, self.num_partitions)
 
         # Detect convergence points for global operations
         convergence_points = self._detect_convergence_points(self.cfg)
@@ -1617,10 +1647,24 @@ class PartitionedRayExecutor(ExecutorBase, DAGExecutionMixin, EventLoggingMixin)
             logger.info("Saved partition hashes validated successfully - resuming checkpoints")
             return partitions, saved_info
 
-        # Split the dataset
         logger.info(f"Splitting dataset into {self.num_partitions} partitions (deterministic mode)...")
-        partitions = dataset.data.split(self.num_partitions)
-        logger.info(f"Created {len(partitions)} partitions")
+        if self.partition_mode == "manual" and self.partition_size_cfg is not None:
+            if self.num_partitions == 1:
+                partitions = [dataset.data.materialize()]
+                logger.info("Created 1 materialized partition")
+            else:
+                # Use the configured sample target as each boundary. The final
+                # partition absorbs the remainder implied by nearest-count
+                # planning and is the only partition that can differ in size.
+                split_indices = [self.partition_size_cfg * i for i in range(1, self.num_partitions)]
+                partitions = dataset.data.split_at_indices(split_indices)
+                logger.info(
+                    f"Created {len(partitions)} partitions via row-based splitting "
+                    f"(target: {self.partition_size_cfg} samples each)"
+                )
+        else:
+            partitions = dataset.data.split(self.num_partitions)
+            logger.info(f"Created {len(partitions)} partitions")
 
         # If resuming, validate partitions match
         if saved_info is not None:

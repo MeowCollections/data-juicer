@@ -691,18 +691,11 @@ def build_base_parser() -> ArgumentParser:
     parser.add_argument("--ray_address", type=str, default="auto", help="The address of the Ray cluster.")
 
     # Partitioning configuration for PartitionedRayExecutor
-    # Support both flat and nested partition configuration
     parser.add_argument(
         "--partition_size",
-        type=int,
-        default=10000,
-        help="Number of samples per partition for PartitionedRayExecutor (legacy flat config)",
-    )
-    parser.add_argument(
-        "--max_partition_size_mb",
-        type=int,
-        default=128,
-        help="Maximum partition size in MB for PartitionedRayExecutor (legacy flat config)",
+        type=Optional[PositiveInt],
+        default=None,
+        help="Deprecated; use --partition.size. Number of samples per partition.",
     )
 
     parser.add_argument(
@@ -721,11 +714,21 @@ def build_base_parser() -> ArgumentParser:
         help="Partition mode: manual (specify num_of_partitions) or auto (use partition size optimizer)",
     )
     parser.add_argument(
-        "--partition.num_of_partitions",
-        type=Union[PositiveInt, Literal["auto"]],
-        default=4,
+        "--partition.size",
+        type=Optional[PositiveInt],
+        default=None,
         help=(
-            "Number of partitions for manual mode (ignored in auto mode). "
+            "Optional samples-per-partition target. In manual mode, the executor derives the partition count "
+            "after loading the dataset. In auto mode, this is used only when the optimizer cannot recommend "
+            "a valid sample count."
+        ),
+    )
+    parser.add_argument(
+        "--partition.num_of_partitions",
+        type=Optional[Union[PositiveInt, Literal["auto"]]],
+        default=None,
+        help=(
+            "Number of partitions for manual mode (default: 4 when neither this nor partition.size is set). "
             "In auto mode, 'auto' derives a cluster-aware count; a positive "
             "integer acts as the data-driven ceiling for the cluster-aware "
             "adjustment."
@@ -756,9 +759,9 @@ def build_base_parser() -> ArgumentParser:
         "--partition.target_size_mb",
         type=int,
         default=256,
-        help="Target partition size in MB for auto mode (128, 256, 512, or 1024). "
-        "Controls how large each partition should be. Smaller = more checkpoints & better recovery, "
-        "larger = less overhead. Default 256MB balances memory safety and efficiency.",
+        help="Target partition size in MB for the auto-mode optimizer, e.g. 128, 256, 512 or 1024. "
+        "Values that produce a recommendation below an optimizer minimum are accepted and clamped with a warning. "
+        "This is an estimate used for planning, not a hard memory or output-file size limit.",
     )
 
     # Resource optimization configuration
@@ -842,6 +845,58 @@ def build_base_parser() -> ArgumentParser:
     )
 
     return parser
+
+
+def _normalize_partition_size_config(cfg):
+    """Validate partition-size choices and bridge the deprecated flat field."""
+    flat_size = getattr(cfg, "partition_size", None)
+    partition_cfg = getattr(cfg, "partition", None)
+    if partition_cfg is None:
+        return
+
+    import warnings
+
+    if isinstance(partition_cfg, dict):
+        mode = partition_cfg.get("mode", "auto")
+        nested_size = partition_cfg.get("size")
+        configured_count = partition_cfg.get("num_of_partitions")
+    else:
+        mode = getattr(partition_cfg, "mode", "auto")
+        nested_size = getattr(partition_cfg, "size", None)
+        configured_count = getattr(partition_cfg, "num_of_partitions", None)
+
+    manual_count_mode = mode == "manual" and configured_count != "auto"
+    if manual_count_mode and nested_size is not None and configured_count is not None:
+        raise ValueError(
+            "partition.size and partition.num_of_partitions are mutually exclusive in manual mode; "
+            "configure either a samples-per-partition target or an explicit partition count."
+        )
+
+    if flat_size is not None:
+        warnings.warn(
+            "--partition_size is deprecated and will be removed in a future version. Use --partition.size instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        if manual_count_mode and configured_count is not None and nested_size is None:
+            warnings.warn(
+                "Ignoring deprecated partition_size because partition.num_of_partitions is explicitly configured "
+                "in manual mode.",
+                UserWarning,
+                stacklevel=3,
+            )
+        elif nested_size is None:
+            nested_size = flat_size
+
+    should_default_count = configured_count is None and not (mode == "manual" and nested_size is not None)
+    if isinstance(partition_cfg, dict):
+        partition_cfg["size"] = nested_size
+        if should_default_count:
+            partition_cfg["num_of_partitions"] = 4
+    else:
+        partition_cfg.size = nested_size
+        if should_default_count:
+            partition_cfg.num_of_partitions = 4
 
 
 def init_configs(args: Optional[List[str]] = None, allow_auto: bool = False, load_configs_only=False, **kwargs):
@@ -942,6 +997,8 @@ def init_configs(args: Optional[List[str]] = None, allow_auto: bool = False, loa
                     err_msg = "--auto argument can only be used for analyzer!"
                     logger.error(err_msg)
                     raise NotImplementedError(err_msg)
+
+                _normalize_partition_size_config(cfg)
 
         with timing_context("Initializing setup from config"):
             cfg = init_setup_from_cfg(cfg, load_configs_only)

@@ -1195,5 +1195,148 @@ class EncryptionConfigTest(DataJuicerTestCaseBase):
         self.assertIsNone(cfg.cache_compress)
 
 
+class PartitionTargetSizeConfigTest(DataJuicerTestCaseBase):
+
+    def _load(self, extra_args=None):
+        return init_configs(
+            ['--auto'] + (extra_args or []),
+            allow_auto=True,
+            load_configs_only=True,
+        )
+
+    def _load_with_warnings(self, extra_args):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            cfg = self._load(extra_args)
+        deprecations = [warning for warning in caught if issubclass(warning.category, DeprecationWarning)]
+        return cfg, deprecations
+
+    def _load_config_all_partition(self, extra_args=None):
+        """Load the reference partition stanza in an otherwise minimal config."""
+        config_all_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))),
+            'data_juicer',
+            'config',
+            'config_all.yaml',
+        )
+        with open(config_all_path) as f:
+            partition = yaml.safe_load(f)['partition']
+
+        config = {
+            'project_name': 'partition_config_all_test',
+            'dataset_path': test_yaml_path,
+            'export_path': os.path.join(tempfile.gettempdir(), 'partition_config_all_test.jsonl'),
+            'process': [],
+            'partition': partition,
+        }
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.safe_dump(config, f)
+            config_path = f.name
+        self.addCleanup(lambda: os.path.exists(config_path) and os.unlink(config_path))
+        return init_configs(
+            ['--config', config_path] + (extra_args or []),
+            load_configs_only=True,
+        )
+
+    def test_default_and_explicit_target_size(self):
+        self.assertEqual(self._load().partition.target_size_mb, 256)
+        cfg = self._load(['--partition.target_size_mb', '64'])
+        self.assertEqual(cfg.partition.target_size_mb, 64)
+
+    def test_non_positive_target_size_is_preserved_for_optimizer_clamping(self):
+        for value in ('0', '-1'):
+            with self.subTest(value=value):
+                cfg = self._load(['--partition.target_size_mb', value])
+                self.assertEqual(cfg.partition.target_size_mb, int(value))
+
+    def test_obsolete_flat_max_size_is_rejected(self):
+        with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                self._load(['--max_partition_size_mb', '64'])
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_nested_partition_size(self):
+        self.assertIsNone(self._load().partition.size)
+        self.assertEqual(self._load().partition.num_of_partitions, 4)
+        cfg = self._load(['--partition.mode', 'manual', '--partition.size', '500'])
+        self.assertEqual(cfg.partition.size, 500)
+        self.assertIsNone(cfg.partition.num_of_partitions)
+        with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            with self.assertRaises(SystemExit):
+                self._load(['--partition.size', '0'])
+
+    def test_config_all_allows_manual_size_cli_override(self):
+        default_cfg = self._load_config_all_partition()
+        self.assertEqual(default_cfg.partition.num_of_partitions, 4)
+
+        size_cfg = self._load_config_all_partition([
+            '--partition.mode', 'manual',
+            '--partition.size', '500',
+        ])
+        self.assertEqual(size_cfg.partition.size, 500)
+        self.assertIsNone(size_cfg.partition.num_of_partitions)
+
+    def test_flat_partition_size_bridges_and_warns(self):
+        for value in ('2000', '10000'):
+            with self.subTest(value=value):
+                cfg, warnings = self._load_with_warnings(['--partition_size', value])
+                self.assertEqual(cfg.partition.size, int(value))
+                self.assertEqual(len(warnings), 1)
+                self.assertIn('--partition_size', str(warnings[0].message))
+
+    def test_nested_partition_size_takes_precedence(self):
+        cfg, warnings = self._load_with_warnings(
+            ['--partition_size', '2000', '--partition.size', '3000']
+        )
+        self.assertEqual(cfg.partition.size, 3000)
+        self.assertEqual(len(warnings), 1)
+
+    def test_manual_size_and_count_are_mutually_exclusive(self):
+        with self.assertRaisesRegex(ValueError, 'mutually exclusive'):
+            self._load([
+                '--partition.mode', 'manual',
+                '--partition.size', '500',
+                '--partition.num_of_partitions', '8',
+            ])
+
+    def test_auto_partition_count_sentinel_can_use_size_fallback(self):
+        cfg = self._load([
+            '--partition.mode', 'manual',
+            '--partition.size', '500',
+            '--partition.num_of_partitions', 'auto',
+        ])
+        self.assertEqual(cfg.partition.size, 500)
+        self.assertEqual(cfg.partition.num_of_partitions, 'auto')
+
+    def test_manual_legacy_size_does_not_override_explicit_count(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            cfg = self._load([
+                '--partition.mode', 'manual',
+                '--partition_size', '500',
+                '--partition.num_of_partitions', '8',
+            ])
+        self.assertIsNone(cfg.partition.size)
+        self.assertEqual(cfg.partition.num_of_partitions, 8)
+        self.assertEqual(
+            [warning.category for warning in caught],
+            [DeprecationWarning, UserWarning],
+        )
+        self.assertIn('Ignoring deprecated partition_size', str(caught[1].message))
+
+    def test_manual_legacy_size_bridges_when_count_is_omitted(self):
+        cfg, warnings = self._load_with_warnings([
+            '--partition.mode', 'manual',
+            '--partition_size', '500',
+        ])
+        self.assertEqual(cfg.partition.size, 500)
+        self.assertIsNone(cfg.partition.num_of_partitions)
+        self.assertEqual(len(warnings), 1)
+
+
 if __name__ == '__main__':
     unittest.main()
